@@ -1,0 +1,75 @@
+# AttributesRPG Configuration
+
+settings:
+  max-player-level: 100
+  max-attribute-level: 50
+  points-per-level: 1
+
+leveling:
+  base-exp: 100
+  exp-per-level: 20
+
+mob-exp:
+  ZOMBIE: 5
+  SKELETON: 6
+  SPIDER: 5
+  CREEPER: 8
+  ENDERMAN: 12
+  BLAZE: 12
+  WITCH: 15
+  WITHER_SKELETON: 15
+  WITHER: 300
+  ENDER_DRAGON: 500
+
+  # Mob dari spawner tidak memberikan EXP secara default.
+  spawner-exp-enabled: false
+
+level-up:
+  title: "&6&lLEVEL UP!"
+  subtitle: "&eLevel baru: &f{level}"
+  sound: ENTITY_PLAYER_LEVELUP
+  sound-volume: 1.0
+  sound-pitch: 1.0
+
+  particles:
+    enabled: true
+    duration-seconds: 3
+    count: 30
+    radius: 1.2
+
+attributes:
+  strength:
+    max-level: 50
+    damage-per-level: 0.005
+
+  defense:
+    max-level: 50
+    reduction-per-level: 0.003
+
+  vitality:
+    max-level: 50
+    health-per-level: 0.2
+
+  agility:
+    max-level: 50
+    speed-per-level: 0.002
+
+  intelligence:
+    max-level: 50
+    magic-damage-per-level: 0.005
+
+  luck:
+    max-level: 50
+    loot-chance-per-level: 0.002
+
+  endurance:
+    max-level: 50
+    effect-resistance-per-level: 0.003
+
+  dexterity:
+    max-level: 50
+    ranged-damage-per-level: 0.004
+
+database:
+  file: players.db
+  
