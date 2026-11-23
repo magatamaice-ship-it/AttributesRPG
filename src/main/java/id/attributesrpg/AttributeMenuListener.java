@@ -41,11 +41,8 @@ public class AttributeMenuListener implements Listener {
 
         event.setCancelled(true);
 
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-
-        if (event.getClickedInventory() != inventory) {
+        if (!(event.getWhoClicked() instanceof Player player)
+                || event.getClickedInventory() != inventory) {
             return;
         }
 
@@ -73,12 +70,11 @@ public class AttributeMenuListener implements Listener {
 
         int oldLevel = data.getAttribute(attribute);
 
-        boolean allocated = plugin.getAttributeManager()
-                .allocatePoint(data, attribute);
+        plugin.getAttributeManager().allocatePoint(data, attribute);
 
-        if (!allocated || data.getAttribute(attribute) <= oldLevel) {
+        if (data.getAttribute(attribute) <= oldLevel) {
             player.sendMessage(ChatColor.RED
-                    + "Atribut gagal ditingkatkan. Periksa poin dan batas level.");
+                    + "Attribute Points tidak cukup atau level maksimum tercapai.");
             return;
         }
 
@@ -91,7 +87,7 @@ public class AttributeMenuListener implements Listener {
             exception.printStackTrace();
 
             player.sendMessage(ChatColor.RED
-                    + "Terjadi kesalahan saat menyimpan atribut.");
+                    + "Gagal menyimpan atribut.");
             return;
         }
 
@@ -111,9 +107,8 @@ public class AttributeMenuListener implements Listener {
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        Inventory inventory = event.getView().getTopInventory();
-
-        if (inventory.getHolder() instanceof AttributeMenu) {
+        if (event.getView().getTopInventory()
+                .getHolder() instanceof AttributeMenu) {
             event.setCancelled(true);
         }
     }
