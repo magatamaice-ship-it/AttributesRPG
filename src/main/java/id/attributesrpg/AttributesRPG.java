@@ -11,6 +11,7 @@ public final class AttributesRPG extends JavaPlugin {
     private DatabaseManager databaseManager;
     private PlayerDataManager playerDataManager;
     private LevelManager levelManager;
+    private AttributeManager attributeManager;
 
     @Override
     public void onEnable() {
@@ -23,6 +24,7 @@ public final class AttributesRPG extends JavaPlugin {
 
             playerDataManager = new PlayerDataManager(databaseManager);
             levelManager = new LevelManager(this);
+            attributeManager = new AttributeManager(this);
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
@@ -69,5 +71,9 @@ public final class AttributesRPG extends JavaPlugin {
 
     public LevelManager getLevelManager() {
         return levelManager;
+    }
+
+    public AttributeManager getAttributeManager() {
+        return attributeManager;
     }
 }
