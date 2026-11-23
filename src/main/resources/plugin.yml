@@ -1,0 +1,67 @@
+
+name: AttributesRPG
+version: 1.0.0
+main: id.attributesrpg.AttributesRPG
+api-version: '1.21'
+author: AttributesRPG
+description: Custom RPG attributes, leveling, and mob EXP system.
+
+commands:
+  attributes:
+    description: Open the RPG attributes menu.
+    usage: /attributes [top|help|reload]
+    aliases: [attr]
+
+  stats:
+    description: View player attributes.
+    usage: /stats [player]
+
+  level:
+    description: View RPG level and EXP.
+    usage: /level
+
+  addlevel:
+    description: Add RPG levels to a player.
+    usage: /addlevel <player> <amount>
+    permission: attributesrpg.admin
+
+  setlevel:
+    description: Set a player's RPG level.
+    usage: /setlevel <player> <level>
+    permission: attributesrpg.admin
+
+  addexp:
+    description: Add RPG EXP to a player.
+    usage: /addexp <player> <amount>
+    permission: attributesrpg.admin
+
+  setexp:
+    description: Set a player's RPG EXP.
+    usage: /setexp <player> <amount>
+    permission: attributesrpg.admin
+
+  givepoints:
+    description: Give attribute points to a player.
+    usage: /givepoints <player> <amount>
+    permission: attributesrpg.admin
+
+  setattribute:
+    description: Set a player's attribute level.
+    usage: /setattribute <player> <attribute> <level>
+    permission: attributesrpg.admin
+
+  setitem:
+    description: Register the attribute reset item.
+    usage: /setitem
+    permission: attributesrpg.admin
+
+  mobexp:
+    description: Manage EXP gained from mobs.
+    usage: /mobexp <set|get|list|remove|reload>
+    permission: attributesrpg.admin
+
+permissions:
+  attributesrpg.admin:
+    description: Allows access to AttributesRPG admin commands.
+    default: op
+    
