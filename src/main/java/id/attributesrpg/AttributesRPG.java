@@ -34,6 +34,10 @@ public final class AttributesRPG extends JavaPlugin {
                     new MobExpListener(this), this
             );
 
+            getServer().getPluginManager().registerEvents(
+                    new AttributeEffectListener(this), this
+            );
+
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
             exception.printStackTrace();
