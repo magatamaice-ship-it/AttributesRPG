@@ -20,23 +20,18 @@ public class PlayerDataListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         var player = event.getPlayer();
 
-        plugin.getServer().getScheduler().runTaskAsynchronously(
-                plugin,
-                () -> {
-                    try {
-                        plugin.getPlayerDataManager().loadPlayer(
-                                player.getUniqueId(),
-                                player.getName()
-                        );
+        try {
+            plugin.getPlayerDataManager().loadPlayer(
+                    player.getUniqueId(),
+                    player.getName()
+            );
 
-                    } catch (SQLException exception) {
-                        plugin.getLogger().severe(
-                                "Gagal memuat data " + player.getName()
-                        );
-                        exception.printStackTrace();
-                    }
-                }
-        );
+        } catch (SQLException exception) {
+            plugin.getLogger().severe(
+                    "Gagal memuat data " + player.getName()
+            );
+            exception.printStackTrace();
+        }
     }
 
     @EventHandler
