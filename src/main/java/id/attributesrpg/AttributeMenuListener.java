@@ -72,11 +72,11 @@ public class AttributeMenuListener implements Listener {
         }
 
         int oldLevel = data.getAttribute(attribute);
-        int oldPoints = data.getAttributePoints();
 
-        plugin.getAttributeManager().allocatePoint(data, attribute);
+        boolean allocated = plugin.getAttributeManager()
+                .allocatePoint(data, attribute);
 
-        if (data.getAttribute(attribute) == oldLevel) {
+        if (!allocated || data.getAttribute(attribute) <= oldLevel) {
             player.sendMessage(ChatColor.RED
                     + "Atribut gagal ditingkatkan. Periksa poin dan batas level.");
             return;
@@ -89,7 +89,13 @@ public class AttributeMenuListener implements Listener {
                     "Gagal menyimpan atribut " + player.getName()
             );
             exception.printStackTrace();
+
+            player.sendMessage(ChatColor.RED
+                    + "Terjadi kesalahan saat menyimpan atribut.");
+            return;
         }
+
+        plugin.getAttributeStatListener().applyStats(player);
 
         player.sendMessage(ChatColor.GREEN
                 + attribute.toUpperCase()
