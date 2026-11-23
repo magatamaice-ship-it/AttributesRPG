@@ -38,6 +38,10 @@ public final class AttributesRPG extends JavaPlugin {
                     new AttributeEffectListener(this), this
             );
 
+            getServer().getPluginManager().registerEvents(
+                    new AttributeStatListener(this), this
+            );
+
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
             exception.printStackTrace();
@@ -57,8 +61,6 @@ public final class AttributesRPG extends JavaPlugin {
         if (databaseManager != null) {
             databaseManager.close();
         }
-
-        getLogger().info("AttributesRPG berhasil dinonaktifkan!");
     }
 
     public static AttributesRPG getInstance() {
