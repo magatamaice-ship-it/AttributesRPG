@@ -24,6 +24,10 @@ public final class AttributesRPG extends JavaPlugin {
 
             playerDataManager = new PlayerDataManager(databaseManager);
 
+            getServer().getPluginManager().registerEvents(
+        new PlayerDataListener(this), this
+);
+
         } catch (SQLException exception) {
             getLogger().severe(
                     "Gagal mengaktifkan database AttributesRPG!"
