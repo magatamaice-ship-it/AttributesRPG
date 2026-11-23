@@ -2,6 +2,7 @@
 package id.attributesrpg;
 
 import org.bukkit.plugin.java.JavaPlugin;
+
 import java.sql.SQLException;
 
 public final class AttributesRPG extends JavaPlugin {
@@ -44,6 +45,14 @@ public final class AttributesRPG extends JavaPlugin {
 
             getServer().getPluginManager().registerEvents(
                     new LuckEnduranceListener(this), this
+            );
+
+            getServer().getPluginManager().registerEvents(
+                    new AttributeMenuListener(), this
+            );
+
+            getCommand("attributes").setExecutor(
+                    new AttributesCommand(this)
             );
 
         } catch (SQLException exception) {
