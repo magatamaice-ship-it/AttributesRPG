@@ -1,74 +1,119 @@
 
 package id.attributesrpg;
 
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.ChatColor;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
 
-import java.sql.SQLException;
+public class LevelManager {
 
-public final class AttributesRPG extends JavaPlugin {
+    private final AttributesRPG plugin;
+    private final LevelUpEffect levelUpEffect;
 
-    private static AttributesRPG instance;
+    public LevelManager(AttributesRPG plugin) {
+        this.plugin = plugin;
+        this.levelUpEffect = new LevelUpEffect(plugin);
+    }
 
-    private DatabaseManager databaseManager;
-    private PlayerDataManager playerDataManager;
-    private LevelManager levelManager;
+    public int getRequiredExp(int level) {
+        int base = plugin.getConfig().getInt(
+                "leveling.base-exp", 100
+        );
 
-    @Override
-    public void onEnable() {
-        instance = this;
+        int increase = plugin.getConfig().getInt(
+                "leveling.exp-per-level", 20
+        );
 
-        saveDefaultConfig();
+        return base + (increase * level);
+    }
 
-        try {
-            databaseManager = new DatabaseManager(this);
-            databaseManager.initialize();
+    public void addExp(Player player, int amount) {
+        if (amount <= 0) return;
 
-            playerDataManager = new PlayerDataManager(databaseManager);
-            levelManager = new LevelManager(this);
+        PlayerData data = plugin.getPlayerDataManager()
+                .getPlayer(player.getUniqueId());
 
-            getServer().getPluginManager().registerEvents(
-                    new PlayerDataListener(this), this
-            );
+        if (data == null) return;
 
-        } catch (SQLException exception) {
-            getLogger().severe(
-                    "Gagal mengaktifkan database AttributesRPG!"
-            );
-            exception.printStackTrace();
+        int maxLevel = plugin.getConfig().getInt(
+                "settings.max-player-level", 100
+        );
 
-            getServer().getPluginManager().disablePlugin(this);
+        if (data.getLevel() >= maxLevel) {
+            data.setExp(0);
             return;
         }
 
-        getLogger().info("AttributesRPG berhasil diaktifkan!");
-    }
+        data.setExp(data.getExp() + amount);
 
-    @Override
-    public void onDisable() {
-        if (playerDataManager != null) {
-            playerDataManager.saveAll();
+        while (data.getLevel() < maxLevel) {
+            int required = getRequiredExp(data.getLevel());
+
+            if (data.getExp() < required) break;
+
+            data.setExp(data.getExp() - required);
+            data.setLevel(data.getLevel() + 1);
+
+            int points = plugin.getConfig().getInt(
+                    "settings.points-per-level", 1
+            );
+
+            data.setAttributePoints(
+                    data.getAttributePoints() + points
+            );
+
+            playLevelUp(player, data.getLevel());
         }
 
-        if (databaseManager != null) {
-            databaseManager.close();
+        if (data.getLevel() >= maxLevel) {
+            data.setExp(0);
+        }
+    }
+
+    private void playLevelUp(Player player, int level) {
+        String title = plugin.getConfig().getString(
+                "level-up.title", "&6&lLEVEL UP!"
+        );
+
+        String subtitle = plugin.getConfig().getString(
+                "level-up.subtitle", "&eLevel baru: &f{level}"
+        );
+
+        subtitle = subtitle.replace(
+                "{level}", String.valueOf(level)
+        );
+
+        player.sendTitle(
+                ChatColor.translateAlternateColorCodes('&', title),
+                ChatColor.translateAlternateColorCodes('&', subtitle),
+                10, 50, 15
+        );
+
+        try {
+            Sound sound = Sound.valueOf(
+                    plugin.getConfig().getString(
+                            "level-up.sound",
+                            "ENTITY_PLAYER_LEVELUP"
+                    )
+            );
+
+            player.playSound(
+                    player.getLocation(),
+                    sound,
+                    (float) plugin.getConfig().getDouble(
+                            "level-up.sound-volume", 1.0
+                    ),
+                    (float) plugin.getConfig().getDouble(
+                            "level-up.sound-pitch", 1.0
+                    )
+            );
+
+        } catch (IllegalArgumentException exception) {
+            plugin.getLogger().warning(
+                    "Sound level-up tidak valid!"
+            );
         }
 
-        getLogger().info("AttributesRPG berhasil dinonaktifkan!");
-    }
-
-    public static AttributesRPG getInstance() {
-        return instance;
-    }
-
-    public DatabaseManager getDatabaseManager() {
-        return databaseManager;
-    }
-
-    public PlayerDataManager getPlayerDataManager() {
-        return playerDataManager;
-    }
-
-    public LevelManager getLevelManager() {
-        return levelManager;
+        levelUpEffect.play(player);
     }
 }
