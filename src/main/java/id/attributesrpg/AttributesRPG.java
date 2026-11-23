@@ -57,6 +57,10 @@ public final class AttributesRPG extends JavaPlugin {
                     new AttributesCommand(this)
             );
 
+            getCommand("stats").setExecutor(
+                    new StatsCommand(this)
+            );
+
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
             exception.printStackTrace();
