@@ -14,15 +14,13 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 public class AttributeStatListener implements Listener {
 
     private final AttributesRPG plugin;
-
     private final NamespacedKey vitalityKey;
     private final NamespacedKey agilityKey;
 
     public AttributeStatListener(AttributesRPG plugin) {
         this.plugin = plugin;
-
-        vitalityKey = new NamespacedKey(plugin, "rpg_vitality");
-        agilityKey = new NamespacedKey(plugin, "rpg_agility");
+        this.vitalityKey = new NamespacedKey(plugin, "rpg_vitality");
+        this.agilityKey = new NamespacedKey(plugin, "rpg_agility");
     }
 
     @EventHandler
@@ -46,15 +44,21 @@ public class AttributeStatListener implements Listener {
             return;
         }
 
+        double healthBonus = data.getAttribute("vitality")
+                * plugin.getConfig().getDouble(
+                "attributes.vitality.health-per-level", 0.2
+        );
+
+        double speedBonus = data.getAttribute("agility")
+                * plugin.getConfig().getDouble(
+                "attributes.agility.speed-per-level", 0.002
+        );
+
         applyModifier(
                 player,
                 Attribute.MAX_HEALTH,
                 vitalityKey,
-                data.getAttribute("vitality")
-                        * plugin.getConfig().getDouble(
-                        "attributes.vitality.health-per-level",
-                        0.2
-                ),
+                healthBonus,
                 AttributeModifier.Operation.ADD_NUMBER
         );
 
@@ -62,21 +66,16 @@ public class AttributeStatListener implements Listener {
                 player,
                 Attribute.MOVEMENT_SPEED,
                 agilityKey,
-                data.getAttribute("agility")
-                        * plugin.getConfig().getDouble(
-                        "attributes.agility.speed-per-level",
-                        0.002
-                ),
+                speedBonus,
                 AttributeModifier.Operation.MULTIPLY_SCALAR_1
         );
 
-        AttributeInstance health = player.getAttribute(
-                Attribute.MAX_HEALTH
-        );
+        AttributeInstance healthAttribute =
+                player.getAttribute(Attribute.MAX_HEALTH);
 
-        if (health != null
-                && player.getHealth() > health.getValue()) {
-            player.setHealth(health.getValue());
+        if (healthAttribute != null
+                && player.getHealth() > healthAttribute.getValue()) {
+            player.setHealth(healthAttribute.getValue());
         }
     }
 
@@ -93,16 +92,16 @@ public class AttributeStatListener implements Listener {
             return;
         }
 
-        AttributeModifier oldModifier = instance.getModifier(key);
+        instance.removeModifier(key);
 
-        if (oldModifier != null) {
-            instance.removeModifier(oldModifier);
+        if (amount <= 0) {
+            return;
         }
 
-        if (amount > 0) {
-            instance.addModifier(
-                    new AttributeModifier(key, amount, operation)
-            );
-        }
+        instance.addModifier(new AttributeModifier(
+                key,
+                amount,
+                operation
+        ));
     }
 }
