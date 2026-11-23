@@ -2,7 +2,6 @@
 package id.attributesrpg;
 
 import org.bukkit.plugin.java.JavaPlugin;
-
 import java.sql.SQLException;
 
 public final class AttributesRPG extends JavaPlugin {
@@ -11,11 +10,11 @@ public final class AttributesRPG extends JavaPlugin {
 
     private DatabaseManager databaseManager;
     private PlayerDataManager playerDataManager;
+    private LevelManager levelManager;
 
     @Override
     public void onEnable() {
         instance = this;
-
         saveDefaultConfig();
 
         try {
@@ -23,17 +22,19 @@ public final class AttributesRPG extends JavaPlugin {
             databaseManager.initialize();
 
             playerDataManager = new PlayerDataManager(databaseManager);
+            levelManager = new LevelManager(this);
 
             getServer().getPluginManager().registerEvents(
-        new PlayerDataListener(this), this
-);
+                    new PlayerDataListener(this), this
+            );
+
+            getServer().getPluginManager().registerEvents(
+                    new MobExpListener(this), this
+            );
 
         } catch (SQLException exception) {
-            getLogger().severe(
-                    "Gagal mengaktifkan database AttributesRPG!"
-            );
+            getLogger().severe("Gagal mengaktifkan database!");
             exception.printStackTrace();
-
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -64,5 +65,9 @@ public final class AttributesRPG extends JavaPlugin {
 
     public PlayerDataManager getPlayerDataManager() {
         return playerDataManager;
+    }
+
+    public LevelManager getLevelManager() {
+        return levelManager;
     }
 }
