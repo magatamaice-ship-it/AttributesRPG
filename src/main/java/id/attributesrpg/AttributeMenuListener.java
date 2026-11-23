@@ -8,9 +8,28 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
+
+import java.sql.SQLException;
+import java.util.Map;
 
 public class AttributeMenuListener implements Listener {
+
+    private final AttributesRPG plugin;
+
+    private static final Map<Integer, String> ATTRIBUTE_SLOTS = Map.of(
+            19, "strength",
+            21, "defense",
+            23, "vitality",
+            25, "agility",
+            37, "intelligence",
+            39, "luck",
+            41, "endurance",
+            43, "dexterity"
+    );
+
+    public AttributeMenuListener() {
+        this.plugin = AttributesRPG.getInstance();
+    }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
@@ -37,13 +56,51 @@ public class AttributeMenuListener implements Listener {
             return;
         }
 
-        if (slot == 19 || slot == 21 || slot == 23
-                || slot == 25 || slot == 37 || slot == 39
-                || slot == 41 || slot == 43) {
+        String attribute = ATTRIBUTE_SLOTS.get(slot);
 
-            player.sendMessage(ChatColor.YELLOW
-                    + "Sistem peningkatan atribut belum tersedia.");
+        if (attribute == null) {
+            return;
         }
+
+        PlayerData data = plugin.getPlayerDataManager()
+                .getPlayer(player.getUniqueId());
+
+        if (data == null) {
+            player.sendMessage(ChatColor.RED
+                    + "Data RPG tidak ditemukan.");
+            return;
+        }
+
+        int oldLevel = data.getAttribute(attribute);
+        int oldPoints = data.getAttributePoints();
+
+        plugin.getAttributeManager().allocatePoint(data, attribute);
+
+        if (data.getAttribute(attribute) == oldLevel) {
+            player.sendMessage(ChatColor.RED
+                    + "Atribut gagal ditingkatkan. Periksa poin dan batas level.");
+            return;
+        }
+
+        try {
+            plugin.getPlayerDataManager().savePlayer(data);
+        } catch (SQLException exception) {
+            plugin.getLogger().severe(
+                    "Gagal menyimpan atribut " + player.getName()
+            );
+            exception.printStackTrace();
+        }
+
+        player.sendMessage(ChatColor.GREEN
+                + attribute.toUpperCase()
+                + " meningkat menjadi level "
+                + data.getAttribute(attribute) + "!");
+
+        player.sendMessage(ChatColor.AQUA
+                + "Sisa Attribute Points: "
+                + data.getAttributePoints());
+
+        new AttributeMenu(plugin).open(player);
     }
 
     @EventHandler
