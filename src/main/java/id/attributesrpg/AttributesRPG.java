@@ -34,27 +34,21 @@ public final class AttributesRPG extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
             );
-
             getServer().getPluginManager().registerEvents(
                     new MobExpListener(this), this
             );
-
             getServer().getPluginManager().registerEvents(
                     new AttributeEffectListener(this), this
             );
-
             getServer().getPluginManager().registerEvents(
                     attributeStatListener, this
             );
-
             getServer().getPluginManager().registerEvents(
                     new LuckEnduranceListener(this), this
             );
-
             getServer().getPluginManager().registerEvents(
                     new AttributeMenuListener(), this
             );
-
             getServer().getPluginManager().registerEvents(
                     new ResetItemListener(this), this
             );
@@ -62,22 +56,27 @@ public final class AttributesRPG extends JavaPlugin {
             getCommand("attributes").setExecutor(
                     new AttributesCommand(this)
             );
-
             getCommand("stats").setExecutor(
                     new StatsCommand(this)
             );
-
             getCommand("level").setExecutor(
                     new LevelCommand(this)
             );
-
             getCommand("setitem").setExecutor(
                     new SetItemCommand(this)
             );
-
             getCommand("mobexp").setExecutor(
                     new MobExpCommand(this)
             );
+
+            PlayerAdminCommand adminCommand =
+                    new PlayerAdminCommand(this);
+
+            getCommand("setlevel").setExecutor(adminCommand);
+            getCommand("addlevel").setExecutor(adminCommand);
+            getCommand("addexp").setExecutor(adminCommand);
+            getCommand("setexp").setExecutor(adminCommand);
+            getCommand("givepoints").setExecutor(adminCommand);
 
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
