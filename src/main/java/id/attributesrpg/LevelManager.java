@@ -1,13 +1,25 @@
 
 package id.attributesrpg;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Sound;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class LevelManager {
 
     private final AttributesRPG plugin;
+
+    private final Map<UUID, BossBar> expBars = new HashMap<>();
+    private final Map<UUID, BukkitTask> expTasks = new HashMap<>();
 
     public LevelManager(AttributesRPG plugin) {
         this.plugin = plugin;
@@ -42,6 +54,7 @@ public class LevelManager {
         );
 
         if (data.getLevel() >= maxLevel) {
+            removeExpBar(player.getUniqueId());
             return;
         }
 
@@ -52,12 +65,10 @@ public class LevelManager {
                 "settings.points-per-level", 1
         );
 
-        boolean leveledUp = false;
-
         while (data.getLevel() < maxLevel) {
             int requiredExp = getRequiredExp(data.getLevel());
 
-            if (data.getExp() < requiredExp) {
+            if (requiredExp <= 0 || data.getExp() < requiredExp) {
                 break;
             }
 
@@ -68,13 +79,14 @@ public class LevelManager {
                     data.getAttributePoints() + pointsPerLevel
             );
 
-            leveledUp = true;
-
             showLevelUp(player, data.getLevel());
         }
 
         if (data.getLevel() >= maxLevel) {
             data.setExp(0);
+            removeExpBar(player.getUniqueId());
+        } else {
+            updateExpBar(player, data);
         }
 
         try {
@@ -85,6 +97,91 @@ public class LevelManager {
                             + player.getName()
             );
             exception.printStackTrace();
+        }
+    }
+
+    private void updateExpBar(Player player, PlayerData data) {
+        UUID uuid = player.getUniqueId();
+
+        int requiredExp = getRequiredExp(data.getLevel());
+
+        if (requiredExp <= 0) {
+            return;
+        }
+
+        int currentExp = data.getExp();
+        int remainingExp = Math.max(0, requiredExp - currentExp);
+
+        double progress = Math.max(
+                0.0,
+                Math.min(1.0, (double) currentExp / requiredExp)
+        );
+
+        BossBar bar = expBars.get(uuid);
+
+        if (bar == null) {
+            bar = Bukkit.createBossBar(
+                    "",
+                    BarColor.GREEN,
+                    BarStyle.SEGMENTED_10
+            );
+
+            expBars.put(uuid, bar);
+        }
+
+        String title = ChatColor.translateAlternateColorCodes(
+                '&',
+                "&a&lLEVEL " + data.getLevel()
+                        + " &8| &f" + currentExp
+                        + "&7/&f" + requiredExp
+                        + " EXP &8| &e" + remainingExp
+                        + " EXP lagi"
+        );
+
+        bar.setTitle(title);
+        bar.setProgress(progress);
+        bar.setVisible(true);
+
+        if (!bar.getPlayers().contains(player)) {
+            bar.addPlayer(player);
+        }
+
+        BukkitTask oldTask = expTasks.remove(uuid);
+
+        if (oldTask != null) {
+            oldTask.cancel();
+        }
+
+        BukkitTask newTask = Bukkit.getScheduler().runTaskLater(
+                plugin,
+                () -> {
+                    expTasks.remove(uuid);
+
+                    if (!player.isOnline()) {
+                        removeExpBar(uuid);
+                        return;
+                    }
+
+                    removeExpBar(uuid);
+                },
+                100L
+        );
+
+        expTasks.put(uuid, newTask);
+    }
+
+    private void removeExpBar(UUID uuid) {
+        BukkitTask task = expTasks.remove(uuid);
+
+        if (task != null) {
+            task.cancel();
+        }
+
+        BossBar bar = expBars.remove(uuid);
+
+        if (bar != null) {
+            bar.removeAll();
+            bar.setVisible(false);
         }
     }
 
