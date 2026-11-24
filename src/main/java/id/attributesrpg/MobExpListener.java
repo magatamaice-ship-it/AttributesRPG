@@ -1,7 +1,7 @@
 
 package id.attributesrpg;
 
-import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -27,31 +27,34 @@ public class MobExpListener implements Listener {
     public void onMobSpawn(CreatureSpawnEvent event) {
         if (event.getSpawnReason()
                 == CreatureSpawnEvent.SpawnReason.SPAWNER) {
+
             spawnerMobs.add(event.getEntity().getUniqueId());
         }
     }
 
     @EventHandler
     public void onMobDeath(EntityDeathEvent event) {
-        Entity mob = event.getEntity();
-        Player killer = mob.getKiller();
+        LivingEntity mob = event.getEntity();
 
         UUID mobId = mob.getUniqueId();
-        boolean fromSpawner = spawnerMobs.remove(mobId);
+
+        boolean spawnedBySpawner = spawnerMobs.remove(mobId);
+
+        if (spawnedBySpawner
+                && !plugin.getConfig().getBoolean(
+                "mob-exp.spawner-exp-enabled", false)) {
+            return;
+        }
+
+        Player killer = mob.getKiller();
 
         if (killer == null) {
             return;
         }
 
-        if (fromSpawner && !plugin.getConfig().getBoolean(
-                "mob-exp.spawner-exp-enabled", false)) {
-            return;
-        }
-
-        String mobName = mob.getType().name();
-
         int exp = plugin.getConfig().getInt(
-                "mob-exp." + mobName, 0
+                "mob-exp." + mob.getType().name(),
+                0
         );
 
         if (exp <= 0) {
@@ -59,9 +62,5 @@ public class MobExpListener implements Listener {
         }
 
         plugin.getLevelManager().addExp(killer, exp);
-
-        killer.sendMessage(
-                "§a+" + exp + " RPG EXP §7(" + mobName + ")"
-        );
     }
 }
