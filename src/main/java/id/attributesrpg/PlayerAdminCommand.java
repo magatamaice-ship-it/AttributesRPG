@@ -139,7 +139,15 @@ public class PlayerAdminCommand implements CommandExecutor {
                     return true;
                 }
 
-                data.setExp(amount);
+                if (data.getLevel() >= plugin.getConfig().getInt(
+                        "settings.max-player-level", 100)) {
+                    sender.sendMessage(ChatColor.RED
+                            + "Pemain sudah mencapai level maksimum.");
+                    return true;
+                }
+
+                data.setExp(0);
+                plugin.getLevelManager().addExp(player, amount);
             }
 
             case "givepoints" -> {
