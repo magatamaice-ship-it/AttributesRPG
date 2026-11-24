@@ -75,6 +75,10 @@ public final class AttributesRPG extends JavaPlugin {
                     new SetItemCommand(this)
             );
 
+            getCommand("mobexp").setExecutor(
+                    new MobExpCommand(this)
+            );
+
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
             exception.printStackTrace();
