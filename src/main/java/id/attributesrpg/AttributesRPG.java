@@ -78,6 +78,10 @@ public final class AttributesRPG extends JavaPlugin {
             getCommand("setexp").setExecutor(adminCommand);
             getCommand("givepoints").setExecutor(adminCommand);
 
+            getCommand("setattribute").setExecutor(
+                    new SetAttributeCommand(this)
+            );
+
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
             exception.printStackTrace();
