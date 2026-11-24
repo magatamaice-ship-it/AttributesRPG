@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityRemoveEvent;
 
 import java.util.Set;
 import java.util.UUID;
@@ -27,7 +28,6 @@ public class MobExpListener implements Listener {
     public void onMobSpawn(CreatureSpawnEvent event) {
         if (event.getSpawnReason()
                 == CreatureSpawnEvent.SpawnReason.SPAWNER) {
-
             spawnerMobs.add(event.getEntity().getUniqueId());
         }
     }
@@ -36,9 +36,8 @@ public class MobExpListener implements Listener {
     public void onMobDeath(EntityDeathEvent event) {
         LivingEntity mob = event.getEntity();
 
-        UUID mobId = mob.getUniqueId();
-
-        boolean spawnedBySpawner = spawnerMobs.remove(mobId);
+        boolean spawnedBySpawner =
+                spawnerMobs.remove(mob.getUniqueId());
 
         if (spawnedBySpawner
                 && !plugin.getConfig().getBoolean(
@@ -53,14 +52,16 @@ public class MobExpListener implements Listener {
         }
 
         int exp = plugin.getConfig().getInt(
-                "mob-exp." + mob.getType().name(),
-                0
+                "mob-exp." + mob.getType().name(), 0
         );
 
-        if (exp <= 0) {
-            return;
+        if (exp > 0) {
+            plugin.getLevelManager().addExp(killer, exp);
         }
+    }
 
-        plugin.getLevelManager().addExp(killer, exp);
+    @EventHandler
+    public void onMobRemove(EntityRemoveEvent event) {
+        spawnerMobs.remove(event.getEntity().getUniqueId());
     }
 }
