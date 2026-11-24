@@ -14,6 +14,7 @@ public final class AttributesRPG extends JavaPlugin {
     private LevelManager levelManager;
     private AttributeManager attributeManager;
     private AttributeStatListener attributeStatListener;
+    private ResetItemManager resetItemManager;
 
     @Override
     public void onEnable() {
@@ -28,6 +29,7 @@ public final class AttributesRPG extends JavaPlugin {
             levelManager = new LevelManager(this);
             attributeManager = new AttributeManager(this);
             attributeStatListener = new AttributeStatListener(this);
+            resetItemManager = new ResetItemManager(this);
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
@@ -63,6 +65,10 @@ public final class AttributesRPG extends JavaPlugin {
 
             getCommand("level").setExecutor(
                     new LevelCommand(this)
+            );
+
+            getCommand("setitem").setExecutor(
+                    new SetItemCommand(this)
             );
 
         } catch (SQLException exception) {
@@ -108,5 +114,9 @@ public final class AttributesRPG extends JavaPlugin {
 
     public AttributeStatListener getAttributeStatListener() {
         return attributeStatListener;
+    }
+
+    public ResetItemManager getResetItemManager() {
+        return resetItemManager;
     }
 }
