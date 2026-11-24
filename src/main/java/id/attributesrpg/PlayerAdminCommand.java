@@ -94,7 +94,32 @@ public class PlayerAdminCommand implements CommandExecutor {
                     return true;
                 }
 
-                data.setLevel(Math.min(100, data.getLevel() + amount));
+                int oldLevel = data.getLevel();
+                int newLevel = (int) Math.min(
+                        100L,
+                        (long) oldLevel + amount
+                );
+
+                int gainedLevels = newLevel - oldLevel;
+
+                if (gainedLevels <= 0) {
+                    sender.sendMessage(ChatColor.RED
+                            + "Pemain sudah mencapai level maksimum.");
+                    return true;
+                }
+
+                data.setLevel(newLevel);
+
+                int pointsPerLevel = plugin.getConfig().getInt(
+                        "settings.points-per-level", 1
+                );
+
+                data.setAttributePoints(
+                        data.getAttributePoints()
+                                + gainedLevels * pointsPerLevel
+                );
+
+                data.setExp(0);
             }
 
             case "addexp" -> {
