@@ -33,9 +33,10 @@ public class AttributeMenuListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
+
         Inventory inventory = event.getView().getTopInventory();
 
-        if (!(inventory.getHolder() instanceof AttributeMenu)) {
+        if (!(inventory.getHolder() instanceof AttributeMenu menu)) {
             return;
         }
 
@@ -53,11 +54,47 @@ public class AttributeMenuListener implements Listener {
             return;
         }
 
+        if (!menu.isDetail()) {
+            handleMainMenu(player, slot);
+        } else {
+            handleDetailMenu(player, menu, slot);
+        }
+    }
+
+    private void handleMainMenu(Player player, int slot) {
+
         String attribute = ATTRIBUTE_SLOTS.get(slot);
 
         if (attribute == null) {
             return;
         }
+
+        new AttributeMenu(plugin, attribute).open(player);
+    }
+
+    private void handleDetailMenu(
+            Player player,
+            AttributeMenu menu,
+            int slot
+    ) {
+
+        if (slot == 45) {
+            new AttributeMenu(plugin).open(player);
+            return;
+        }
+
+        int amount;
+
+        switch (slot) {
+            case 29 -> amount = 1;
+            case 31 -> amount = 5;
+            case 33 -> amount = 10;
+            default -> {
+                return;
+            }
+        }
+
+        String attribute = menu.getAttribute();
 
         PlayerData data = plugin.getPlayerDataManager()
                 .getPlayer(player.getUniqueId());
@@ -69,25 +106,50 @@ public class AttributeMenuListener implements Listener {
         }
 
         int oldLevel = data.getAttribute(attribute);
+        int oldPoints = data.getAttributePoints();
 
-        plugin.getAttributeManager().allocatePoint(data, attribute);
+        int maxLevel = plugin.getAttributeManager()
+                .getMaxLevel(attribute);
 
-        if (data.getAttribute(attribute) <= oldLevel) {
+        if (oldPoints < amount) {
             player.sendMessage(ChatColor.RED
-                    + "Attribute Points tidak cukup atau level maksimum tercapai.");
+                    + "Attribute Points tidak cukup. Dibutuhkan "
+                    + amount + " poin.");
+            return;
+        }
+
+        if (oldLevel + amount > maxLevel) {
+            player.sendMessage(ChatColor.RED
+                    + "Level atribut maksimum adalah "
+                    + maxLevel + ".");
+            return;
+        }
+
+        boolean allocated = plugin.getAttributeManager()
+                .allocatePoints(data, attribute, amount);
+
+        if (!allocated) {
+            player.sendMessage(ChatColor.RED
+                    + "Gagal menaikkan atribut.");
             return;
         }
 
         try {
             plugin.getPlayerDataManager().savePlayer(data);
         } catch (SQLException exception) {
+
+            data.setAttribute(attribute, oldLevel);
+            data.setAttributePoints(oldPoints);
+
             plugin.getLogger().severe(
-                    "Gagal menyimpan atribut " + player.getName()
+                    "Gagal menyimpan atribut pemain "
+                            + player.getName()
             );
+
             exception.printStackTrace();
 
             player.sendMessage(ChatColor.RED
-                    + "Gagal menyimpan atribut.");
+                    + "Gagal menyimpan atribut. Perubahan dibatalkan.");
             return;
         }
 
@@ -95,18 +157,20 @@ public class AttributeMenuListener implements Listener {
 
         player.sendMessage(ChatColor.GREEN
                 + attribute.toUpperCase()
-                + " meningkat menjadi level "
-                + data.getAttribute(attribute) + "!");
+                + " meningkat " + amount
+                + " level. Level sekarang: "
+                + data.getAttribute(attribute) + ".");
 
         player.sendMessage(ChatColor.AQUA
                 + "Sisa Attribute Points: "
                 + data.getAttributePoints());
 
-        new AttributeMenu(plugin).open(player);
+        new AttributeMenu(plugin, attribute).open(player);
     }
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
+
         if (event.getView().getTopInventory()
                 .getHolder() instanceof AttributeMenu) {
             event.setCancelled(true);
