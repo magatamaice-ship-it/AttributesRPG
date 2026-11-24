@@ -55,6 +55,10 @@ public final class AttributesRPG extends JavaPlugin {
                     new AttributeMenuListener(), this
             );
 
+            getServer().getPluginManager().registerEvents(
+                    new ResetItemListener(this), this
+            );
+
             getCommand("attributes").setExecutor(
                     new AttributesCommand(this)
             );
