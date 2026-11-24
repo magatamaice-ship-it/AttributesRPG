@@ -79,7 +79,7 @@ public class AttributeMenu implements InventoryHolder {
         }
 
         String title = this.attribute == null
-                ? "&5&lATTRIBUTES RPG"
+                ? "&5&lPROFIL LU CUNG"
                 : "&5&l" + NAMES.get(this.attribute);
 
         this.inventory = Bukkit.createInventory(
