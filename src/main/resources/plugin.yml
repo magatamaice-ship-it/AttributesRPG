@@ -64,4 +64,3 @@ permissions:
   attributesrpg.admin:
     description: Allows access to AttributesRPG admin commands.
     default: op
-    
