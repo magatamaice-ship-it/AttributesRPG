@@ -10,9 +10,11 @@ import org.bukkit.entity.Player;
 public class AttributesCommand implements CommandExecutor {
 
     private final AttributesRPG plugin;
+    private final LeaderboardManager leaderboardManager;
 
     public AttributesCommand(AttributesRPG plugin) {
         this.plugin = plugin;
+        this.leaderboardManager = new LeaderboardManager(plugin);
     }
 
     @Override
@@ -23,50 +25,76 @@ public class AttributesCommand implements CommandExecutor {
             String[] args
     ) {
         if (args.length > 0) {
-            if (args[0].equalsIgnoreCase("help")) {
-                sender.sendMessage(ChatColor.GOLD
-                        + "===== AttributesRPG =====");
-                sender.sendMessage(ChatColor.YELLOW
-                        + "/attributes - Buka menu atribut");
-                sender.sendMessage(ChatColor.YELLOW
-                        + "/attributes help - Bantuan");
-                sender.sendMessage(ChatColor.YELLOW
-                        + "/attributes reload - Muat ulang konfigurasi");
-                sender.sendMessage(ChatColor.YELLOW
-                        + "/attributes top - Peringkat pemain");
-                return true;
-            }
-
-            if (args[0].equalsIgnoreCase("reload")) {
-                if (!sender.hasPermission("attributesrpg.admin")) {
-                    sender.sendMessage(ChatColor.RED
-                            + "Kamu tidak memiliki izin.");
+            switch (args[0].toLowerCase()) {
+                case "top" -> {
+                    leaderboardManager.showLeaderboard(sender);
                     return true;
                 }
 
-                plugin.reloadConfig();
-                sender.sendMessage(ChatColor.GREEN
-                        + "Konfigurasi AttributesRPG dimuat ulang.");
-                return true;
-            }
+                case "help" -> {
+                    sendHelp(sender);
+                    return true;
+                }
 
-            if (args[0].equalsIgnoreCase("top")) {
-                sender.sendMessage(ChatColor.YELLOW
-                        + "Leaderboard belum tersedia.");
-                return true;
-            }
+                case "reload" -> {
+                    if (!sender.hasPermission("attributesrpg.admin")) {
+                        sender.sendMessage(ChatColor.RED
+                                + "Kamu tidak memiliki izin.");
+                        return true;
+                    }
 
-            sender.sendMessage(ChatColor.RED
-                    + "Penggunaan: /attributes [help|top|reload]");
-            return true;
+                    plugin.reloadConfig();
+
+                    sender.sendMessage(ChatColor.GREEN
+                            + "Konfigurasi AttributesRPG berhasil dimuat ulang.");
+                    return true;
+                }
+
+                default -> {
+                    sendHelp(sender);
+                    return true;
+                }
+            }
         }
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Command ini hanya untuk pemain.");
+            sender.sendMessage(ChatColor.RED
+                    + "Command ini hanya bisa digunakan oleh pemain.");
             return true;
         }
 
         new AttributeMenu(plugin).open(player);
         return true;
+    }
+
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.GOLD
+                + "===== ATTRIBUTES RPG HELP =====");
+
+        sender.sendMessage(ChatColor.YELLOW
+                + "/attributes"
+                + ChatColor.GRAY + " - Membuka menu atribut");
+
+        sender.sendMessage(ChatColor.YELLOW
+                + "/attributes top"
+                + ChatColor.GRAY + " - Melihat Top 10 pemain");
+
+        sender.sendMessage(ChatColor.YELLOW
+                + "/attributes help"
+                + ChatColor.GRAY + " - Melihat bantuan");
+
+        if (sender.hasPermission("attributesrpg.admin")) {
+            sender.sendMessage(ChatColor.YELLOW
+                    + "/attributes reload"
+                    + ChatColor.GRAY + " - Memuat ulang konfigurasi");
+        }
+
+        sender.sendMessage(ChatColor.YELLOW
+                + "/stats [player]"
+                + ChatColor.GRAY + " - Melihat statistik");
+
+        sender.sendMessage(ChatColor.YELLOW
+                + "/level"
+                + ChatColor.GRAY + " - Melihat level dan EXP");
     }
 }
