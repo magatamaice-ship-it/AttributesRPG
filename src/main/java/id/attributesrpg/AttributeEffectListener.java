@@ -1,13 +1,14 @@
 
 package id.attributesrpg;
 
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.projectiles.ProjectileSource;
 
 public class AttributeEffectListener implements Listener {
 
@@ -17,83 +18,110 @@ public class AttributeEffectListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
-        Entity damager = event.getDamager();
-        Entity victim = event.getEntity();
 
-        Player attacker = getAttackingPlayer(damager);
+        double damage = event.getDamage();
+
+        if (damage <= 0) {
+            return;
+        }
+
+        Player attacker = getPlayerAttacker(event);
 
         if (attacker != null) {
-            PlayerData data = getData(attacker);
+            PlayerData attackerData = plugin.getPlayerDataManager()
+                    .getPlayer(attacker.getUniqueId());
 
-            if (data != null) {
-                double bonus = 0;
-
-                if (damager instanceof Projectile) {
-                    bonus = data.getAttribute("dexterity")
-                            * plugin.getConfig().getDouble(
-                            "attributes.dexterity.ranged-damage-per-level",
-                            0.004
-                    );
-                } else {
-                    bonus = data.getAttribute("strength")
-                            * plugin.getConfig().getDouble(
-                            "attributes.strength.damage-per-level",
-                            0.005
-                    );
-                }
-
-                EntityDamageEvent.DamageCause cause =
-                        event.getCause();
+            if (attackerData != null) {
+                EntityDamageEvent.DamageCause cause = event.getCause();
 
                 if (cause == EntityDamageEvent.DamageCause.MAGIC
                         || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
-                    bonus += data.getAttribute("intelligence")
-                            * plugin.getConfig().getDouble(
+
+                    damage *= 1.0 + getBonus(
+                            attackerData,
+                            "intelligence",
                             "attributes.intelligence.magic-damage-per-level",
-                            0.005
+                            0.005,
+                            0.25
+                    );
+
+                } else if (event.getDamager() instanceof Projectile) {
+
+                    damage *= 1.0 + getBonus(
+                            attackerData,
+                            "dexterity",
+                            "attributes.dexterity.ranged-damage-per-level",
+                            0.004,
+                            0.20
+                    );
+
+                } else if (cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
+                        || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) {
+
+                    damage *= 1.0 + getBonus(
+                            attackerData,
+                            "strength",
+                            "attributes.strength.damage-per-level",
+                            0.005,
+                            0.25
                     );
                 }
-
-                event.setDamage(event.getDamage() * (1 + bonus));
             }
         }
 
-        if (victim instanceof Player player) {
-            PlayerData data = getData(player);
+        if (event.getEntity() instanceof Player victim) {
+            PlayerData victimData = plugin.getPlayerDataManager()
+                    .getPlayer(victim.getUniqueId());
 
-            if (data != null) {
-                double reduction = data.getAttribute("defense")
-                        * plugin.getConfig().getDouble(
+            if (victimData != null) {
+                double reduction = getBonus(
+                        victimData,
+                        "defense",
                         "attributes.defense.reduction-per-level",
-                        0.003
+                        0.003,
+                        0.15
                 );
 
-                reduction = Math.min(reduction, 0.95);
-
-                event.setDamage(
-                        event.getDamage() * (1 - reduction)
-                );
+                damage *= 1.0 - reduction;
             }
         }
+
+        event.setDamage(Math.max(0, damage));
     }
 
-    private Player getAttackingPlayer(Entity damager) {
-        if (damager instanceof Player player) {
+    private Player getPlayerAttacker(EntityDamageByEntityEvent event) {
+
+        if (event.getDamager() instanceof Player player) {
             return player;
         }
 
-        if (damager instanceof Projectile projectile
-                && projectile.getShooter() instanceof Player player) {
-            return player;
+        if (event.getDamager() instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+
+            if (shooter instanceof Player player) {
+                return player;
+            }
         }
 
         return null;
     }
 
-    private PlayerData getData(Player player) {
-        return plugin.getPlayerDataManager()
-                .getPlayer(player.getUniqueId());
+    private double getBonus(
+            PlayerData data,
+            String attribute,
+            String configPath,
+            double defaultValue,
+            double maximum
+    ) {
+        double perLevel = plugin.getConfig().getDouble(
+                configPath,
+                defaultValue
+        );
+
+        double bonus = data.getAttribute(attribute) * perLevel;
+
+        return Math.max(0, Math.min(bonus, maximum));
     }
 }
