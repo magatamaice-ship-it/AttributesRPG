@@ -60,6 +60,11 @@ commands:
     usage: /mobexp <set|get|list|remove|reload>
     permission: attributesrpg.admin
 
+  resetattribute:
+    description: Reset all attributes of a player.
+    usage: /resetattribute <player>
+    permission: attributesrpg.admin
+
 permissions:
   attributesrpg.admin:
     description: Allows access to AttributesRPG admin commands.
