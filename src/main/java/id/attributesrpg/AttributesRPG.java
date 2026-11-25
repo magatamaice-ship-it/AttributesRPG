@@ -82,6 +82,10 @@ public final class AttributesRPG extends JavaPlugin {
                     new SetAttributeCommand(this)
             );
 
+            getCommand("resetattribute").setExecutor(
+                    new ResetAttributeCommand(this)
+            );
+
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
             exception.printStackTrace();
