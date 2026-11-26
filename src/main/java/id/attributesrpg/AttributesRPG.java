@@ -20,6 +20,7 @@ public final class AttributesRPG extends JavaPlugin {
 
     private SkillManager skillManager;
     private SkillExecutionManager skillExecutionManager;
+    private SkillMenu skillMenu;
 
     @Override
     public void onEnable() {
@@ -40,6 +41,7 @@ public final class AttributesRPG extends JavaPlugin {
 
             skillManager = new SkillManager(this);
             skillExecutionManager = new SkillExecutionManager(this);
+            skillMenu = new SkillMenu(this);
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
@@ -72,6 +74,9 @@ public final class AttributesRPG extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new SkillCombatListener(this), this
             );
+            getServer().getPluginManager().registerEvents(
+                    skillMenu, this
+            );
 
             registerCommands();
 
@@ -84,7 +89,6 @@ public final class AttributesRPG extends JavaPlugin {
 
         getLogger().info("AttributesRPG berhasil diaktifkan!");
     }
-
     private void registerCommands() {
         getCommand("attributes").setExecutor(
                 new AttributesCommand(this)
@@ -119,12 +123,15 @@ public final class AttributesRPG extends JavaPlugin {
         );
 
         SkillCommand skillCommand = new SkillCommand(
-                skillManager, skillExecutionManager
+                skillManager,
+                skillExecutionManager,
+                skillMenu
         );
 
         getCommand("skill").setExecutor(skillCommand);
         getCommand("skill").setTabCompleter(skillCommand);
     }
+
     @Override
     public void onDisable() {
         if (knockManager != null) {
