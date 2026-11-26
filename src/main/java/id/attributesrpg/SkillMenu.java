@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -16,29 +17,52 @@ import java.util.List;
 
 public class SkillMenu implements Listener {
 
-    private final AttributesRPG plugin;
     private static final String TITLE = "§8RPG SKILLS";
+
+    private static final int[] SKILL_SLOTS = {
+            10, 12, 14, 16,
+            28, 30, 32, 34
+    };
+
+    private final AttributesRPG plugin;
 
     public SkillMenu(AttributesRPG plugin) {
         this.plugin = plugin;
     }
 
+    private static class SkillMenuHolder implements InventoryHolder {
+
+        private Inventory inventory;
+
+        public void setInventory(Inventory inventory) {
+            this.inventory = inventory;
+        }
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
+    }
+
     public void open(Player player) {
+        SkillMenuHolder holder = new SkillMenuHolder();
+
         Inventory inventory = Bukkit.createInventory(
-                null, 54, TITLE
+                holder,
+                54,
+                TITLE
         );
+
+        holder.setInventory(inventory);
 
         SkillManager manager = plugin.getSkillManager();
         List<RpgSkill> equipped = manager.getEquippedSkills(player);
 
-        int[] slots = {
-                10, 12, 14, 16,
-                28, 30, 32, 34
-        };
-
         RpgSkill[] skills = RpgSkill.values();
 
-        for (int i = 0; i < skills.length; i++) {
+        for (int i = 0; i < skills.length
+                && i < SKILL_SLOTS.length; i++) {
+
             RpgSkill skill = skills[i];
 
             boolean unlocked = manager.isUnlocked(player, skill);
@@ -59,6 +83,7 @@ public class SkillMenu implements Listener {
             );
 
             List<String> lore = new ArrayList<>();
+
             lore.add("§7" + skill.getDescription());
             lore.add("");
             lore.add("§7Status: "
@@ -85,7 +110,7 @@ public class SkillMenu implements Listener {
             meta.setLore(lore);
             item.setItemMeta(meta);
 
-            inventory.setItem(slots[i], item);
+            inventory.setItem(SKILL_SLOTS[i], item);
         }
 
         ItemStack info = new ItemStack(Material.NETHER_STAR);
@@ -106,10 +131,11 @@ public class SkillMenu implements Listener {
 
         player.openInventory(inventory);
     }
-  
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().equals(TITLE)) {
+        if (!(event.getView().getTopInventory()
+                .getHolder() instanceof SkillMenuHolder)) {
             return;
         }
 
@@ -121,17 +147,23 @@ public class SkillMenu implements Listener {
 
         int slot = event.getRawSlot();
 
-        int[] skillSlots = {
-                10, 12, 14, 16,
-                28, 30, 32, 34
-        };
+        if (slot < 0
+                || slot >= event.getView().getTopInventory().getSize()) {
+            return;
+        }
 
-        for (int i = 0; i < skillSlots.length; i++) {
-            if (slot != skillSlots[i]) {
+        for (int i = 0; i < SKILL_SLOTS.length; i++) {
+            if (slot != SKILL_SLOTS[i]) {
                 continue;
             }
 
-            RpgSkill skill = RpgSkill.values()[i];
+            RpgSkill[] skills = RpgSkill.values();
+
+            if (i >= skills.length) {
+                return;
+            }
+
+            RpgSkill skill = skills[i];
             SkillManager manager = plugin.getSkillManager();
 
             if (!manager.isUnlocked(player, skill)) {
