@@ -1,4 +1,3 @@
-
 name: AttributesRPG
 version: 1.0.0
 main: id.attributesrpg.AttributesRPG
@@ -29,6 +28,11 @@ commands:
     description: Open the RPG equipment menu.
     usage: /equipment
     aliases: [equip]
+
+  rpgitem:
+    description: Create and give RPG equipment.
+    usage: /rpgitem <create|give|help>
+    permission: attributesrpg.admin
 
   addlevel:
     description: Add RPG levels to a player.
