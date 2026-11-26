@@ -16,18 +16,23 @@ public class SkillCommand implements CommandExecutor, TabCompleter {
     private final SkillExecutionManager executionManager;
     private final SkillMenu skillMenu;
 
-    public SkillCommand(SkillManager skillManager,
-                        SkillExecutionManager executionManager,
-                        SkillMenu skillMenu) {
+    public SkillCommand(
+            SkillManager skillManager,
+            SkillExecutionManager executionManager,
+            SkillMenu skillMenu
+    ) {
         this.skillManager = skillManager;
         this.executionManager = executionManager;
         this.skillMenu = skillMenu;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command,
-                             String label, String[] args) {
-
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
+    ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(
                     "Command ini hanya bisa digunakan pemain."
@@ -40,11 +45,11 @@ public class SkillCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("equip")) {
-            if (args.length < 2) {
-                player.sendMessage(
-                        "§cGunakan: /skill equip <nama_skill>"
-                );
+        String action = args[0].toLowerCase();
+
+        if (action.equals("equip")) {
+            if (args.length != 2) {
+                sendUsage(player);
                 return true;
             }
 
@@ -56,23 +61,23 @@ public class SkillCommand implements CommandExecutor, TabCompleter {
             }
 
             if (skillManager.equipSkill(player, skill)) {
-                player.sendMessage("§aSkill §e"
-                        + skill.getDisplayName()
-                        + " §aberhasil dipasang.");
+                player.sendMessage(
+                        "§aSkill §e" + skill.getDisplayName()
+                                + " §aberhasil dipasang."
+                );
             } else {
                 player.sendMessage(
                         "§cSkill gagal dipasang. Periksa level, "
-                                + "slot, dan status combat."
+                                + "slot kosong, dan status combat."
                 );
             }
 
             return true;
         }
-        if (args[0].equalsIgnoreCase("unequip")) {
-            if (args.length < 2) {
-                player.sendMessage(
-                        "§cGunakan: /skill unequip <nama_skill>"
-                );
+
+        if (action.equals("unequip")) {
+            if (args.length != 2) {
+                sendUsage(player);
                 return true;
             }
 
@@ -84,9 +89,10 @@ public class SkillCommand implements CommandExecutor, TabCompleter {
             }
 
             if (skillManager.unequipSkill(player, skill)) {
-                player.sendMessage("§aSkill §e"
-                        + skill.getDisplayName()
-                        + " §aberhasil dilepas.");
+                player.sendMessage(
+                        "§aSkill §e" + skill.getDisplayName()
+                                + " §aberhasil dilepas."
+                );
             } else {
                 player.sendMessage(
                         "§cTidak bisa melepas skill saat combat "
@@ -97,31 +103,53 @@ public class SkillCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (args.length != 1) {
+            sendUsage(player);
+            return true;
+        }
+
         try {
             int slot = Integer.parseInt(args[0]);
 
             if (slot < 1 || slot > 3) {
-                player.sendMessage("§cGunakan slot 1 sampai 3.");
+                player.sendMessage(
+                        "§cGunakan slot 1 sampai 3."
+                );
                 return true;
             }
 
             executionManager.activate(player, slot);
 
         } catch (NumberFormatException exception) {
-            player.sendMessage(
-                    "§cGunakan /skill, /skill 1-3, "
-                            + "/skill equip, atau /skill unequip."
-            );
+            sendUsage(player);
         }
 
         return true;
     }
 
+    private void sendUsage(Player player) {
+        player.sendMessage("§6Perintah Skill:");
+        player.sendMessage("§e/skill §7- Membuka menu skill");
+        player.sendMessage("§e/skill 1-3 §7- Mengaktifkan skill");
+        player.sendMessage(
+                "§e/skill equip <nama_skill> §7- Memasang skill"
+        );
+        player.sendMessage(
+                "§e/skill unequip <nama_skill> §7- Melepas skill"
+        );
+    }
+
     @Override
-    public List<String> onTabComplete(CommandSender sender,
-                                      Command command,
-                                      String alias,
-                                      String[] args) {
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] args
+    ) {
+        if (!(sender instanceof Player)) {
+            return List.of();
+        }
+
         List<String> suggestions = new ArrayList<>();
 
         if (args.length == 1) {
@@ -131,8 +159,11 @@ public class SkillCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 2
                 && (args[0].equalsIgnoreCase("equip")
                 || args[0].equalsIgnoreCase("unequip"))) {
+
             for (RpgSkill skill : RpgSkill.values()) {
-                suggestions.add(skill.name().toLowerCase());
+                suggestions.add(
+                        skill.name().toLowerCase()
+                );
             }
         }
 
