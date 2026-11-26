@@ -1,6 +1,6 @@
-
 package id.attributesrpg;
 
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -27,7 +27,8 @@ public class EquipmentItemParser {
     }
 
     public EquipmentData parse(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) {
+        if (item == null || item.getType().isAir()
+                || !item.hasItemMeta()) {
             return null;
         }
 
@@ -35,7 +36,12 @@ public class EquipmentItemParser {
         PersistentDataContainer data =
                 meta.getPersistentDataContainer();
 
-        if (!data.has(equipmentKey, PersistentDataType.BYTE)) {
+        Byte marker = data.get(
+                equipmentKey,
+                PersistentDataType.BYTE
+        );
+
+        if (marker == null || marker != (byte) 1) {
             return null;
         }
 
@@ -43,13 +49,23 @@ public class EquipmentItemParser {
         String typeName = data.get(typeKey, PersistentDataType.STRING);
         String rarityName = data.get(rarityKey, PersistentDataType.STRING);
         String serializedStats = data.get(
-                statsKey, PersistentDataType.STRING
+                statsKey,
+                PersistentDataType.STRING
         );
 
-        EquipmentType type = EquipmentType.fromName(typeName);
+        if (id == null || !id.matches("[a-zA-Z0-9_-]{2,32}")
+                || typeName == null
+                || rarityName == null
+                || serializedStats == null
+                || serializedStats.isBlank()) {
+            return null;
+        }
 
-        if (type == null || id == null || rarityName == null
-                || serializedStats == null) {
+        EquipmentType type = EquipmentType.fromName(typeName);
+        EquipmentRarity rarity =
+                EquipmentRarity.fromName(rarityName);
+
+        if (type == null || rarity == null) {
             return null;
         }
 
@@ -57,38 +73,58 @@ public class EquipmentItemParser {
                 new EnumMap<>(EquipmentStat.class);
 
         try {
-            if (!serializedStats.isBlank()) {
-                for (String entry : serializedStats.split(";")) {
-                    String[] parts = entry.split("=", 2);
+            String[] entries = serializedStats.split(";", -1);
 
-                    if (parts.length != 2) {
-                        return null;
-                    }
-
-                    EquipmentStat stat =
-                            EquipmentStat.fromName(parts[0]);
-
-                    double value = Double.parseDouble(parts[1]);
-
-                    if (stat == null || !Double.isFinite(value)
-                            || value <= 0) {
-                        return null;
-                    }
-
-                    stats.put(stat, value);
+            for (String entry : entries) {
+                if (entry.isBlank()) {
+                    return null;
                 }
+
+                String[] parts = entry.split("=", -1);
+
+                if (parts.length != 2
+                        || parts[0].isBlank()
+                        || parts[1].isBlank()) {
+                    return null;
+                }
+
+                EquipmentStat stat =
+                        EquipmentStat.fromName(parts[0].trim());
+
+                if (stat == null || stats.containsKey(stat)) {
+                    return null;
+                }
+
+                double value = Double.parseDouble(parts[1].trim());
+
+                if (!Double.isFinite(value) || value <= 0) {
+                    return null;
+                }
+
+                stats.put(stat, value);
             }
         } catch (IllegalArgumentException exception) {
             return null;
         }
 
+        if (stats.isEmpty()) {
+            return null;
+        }
+
+        String displayName = meta.hasDisplayName()
+                ? PlainTextComponentSerializer.plainText()
+                    .serialize(meta.displayName())
+                : "Equipment";
+
+        if (displayName.isBlank()) {
+            displayName = "Equipment";
+        }
+
         return new EquipmentData(
                 id,
-                meta.hasDisplayName()
-                        ? meta.getDisplayName().toString()
-                        : "Equipment",
+                displayName,
                 type,
-                EquipmentRarity.fromName(rarityName),
+                rarity,
                 stats
         );
     }
