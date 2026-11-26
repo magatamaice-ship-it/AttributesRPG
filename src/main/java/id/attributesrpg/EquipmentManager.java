@@ -39,8 +39,7 @@ public class EquipmentManager {
     }
 
     public boolean equip(Player player, EquipmentData equipment) {
-        if (player == null || equipment == null
-                || equipment.getType() == null) {
+        if (player == null || !isValidEquipment(equipment)) {
             return false;
         }
 
@@ -67,6 +66,44 @@ public class EquipmentManager {
             );
             return false;
         }
+    }
+
+    private boolean isValidEquipment(EquipmentData equipment) {
+        if (equipment == null
+                || equipment.getType() == null
+                || equipment.getRarity() == null
+                || equipment.getId() == null
+                || equipment.getId().isBlank()
+                || equipment.getDisplayName() == null
+                || equipment.getDisplayName().isBlank()
+                || equipment.getStats().isEmpty()) {
+            return false;
+        }
+
+        for (Map.Entry<EquipmentStat, Double> entry :
+                equipment.getStats().entrySet()) {
+
+            EquipmentStat stat = entry.getKey();
+            Double value = entry.getValue();
+
+            if (stat == null || value == null
+                    || !Double.isFinite(value) || value <= 0) {
+                return false;
+            }
+
+            double cap = STAT_CAPS.getOrDefault(stat, 0.0);
+
+            if (cap <= 0 || value > cap) {
+                return false;
+            }
+
+            if (value * equipment.getRarity().getBonusMultiplier()
+                    > cap) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public boolean unequip(Player player, EquipmentType type) {
@@ -110,6 +147,15 @@ public class EquipmentManager {
 
             for (EquipmentData data :
                     plugin.getDatabaseManager().loadEquipment(uuid)) {
+
+                if (!isValidEquipment(data)) {
+                    plugin.getLogger().warning(
+                            "Equipment tidak valid dilewati untuk "
+                                    + player.getName()
+                    );
+                    continue;
+                }
+
                 items.put(data.getType(), data);
             }
 
@@ -174,5 +220,9 @@ public class EquipmentManager {
 
     public void clearAll() {
         equipped.clear();
+    }
+
+    public static double getStatCap(EquipmentStat stat) {
+        return STAT_CAPS.getOrDefault(stat, 0.0);
     }
 }
