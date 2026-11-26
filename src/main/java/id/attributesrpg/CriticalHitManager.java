@@ -22,7 +22,11 @@ public class CriticalHitManager {
             boolean ranged,
             double damage
     ) {
-        if (!Double.isFinite(damage) || damage <= 0) {
+        if (attacker == null
+                || victim == null
+                || data == null
+                || !Double.isFinite(damage)
+                || damage <= 0) {
             return damage;
         }
 
@@ -51,7 +55,9 @@ public class CriticalHitManager {
                 + equipmentChance;
 
         double maxChance = Math.max(0, Math.min(
-                getConfigValue("combat.critical.max-chance", 0.30),
+                getConfigValue(
+                        "combat.critical.max-chance", 0.30
+                ),
                 1.0
         ));
 
@@ -68,15 +74,15 @@ public class CriticalHitManager {
         if (ranged) {
             criticalBonus += data.getAttribute("dexterity")
                     * getConfigValue(
-                    "combat.critical.dexterity-damage-per-level",
-                    0.01
-            );
+                            "combat.critical.dexterity-damage-per-level",
+                            0.01
+                    );
         } else {
             criticalBonus += data.getAttribute("strength")
                     * getConfigValue(
-                    "combat.critical.strength-damage-per-level",
-                    0.01
-            );
+                            "combat.critical.strength-damage-per-level",
+                            0.01
+                    );
         }
 
         criticalBonus += equipment.getTotalStat(
@@ -98,8 +104,14 @@ public class CriticalHitManager {
         return damage * (1.0 + criticalBonus);
     }
 
-    private double getConfigValue(String path, double defaultValue) {
-        double value = plugin.getConfig().getDouble(path, defaultValue);
+    private double getConfigValue(
+            String path,
+            double defaultValue
+    ) {
+        double value = plugin.getConfig().getDouble(
+                path,
+                defaultValue
+        );
 
         return Double.isFinite(value) && value >= 0
                 ? value
