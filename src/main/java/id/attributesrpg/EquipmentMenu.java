@@ -1,4 +1,3 @@
-
 package id.attributesrpg;
 
 import org.bukkit.Bukkit;
@@ -53,7 +52,10 @@ public class EquipmentMenu implements Listener {
                         createButton(
                                 Material.GRAY_DYE,
                                 "§7" + types[i].getDisplayName(),
-                                List.of("§8Kosong", "§eKlik untuk melihat slot")
+                                List.of(
+                                        "§8Kosong",
+                                        "§eKlik untuk melihat slot"
+                                )
                         )
                 );
             } else {
@@ -162,6 +164,9 @@ public class EquipmentMenu implements Listener {
         }
 
         player.getInventory().setItemInMainHand(null);
+
+        updatePlayerStats(player);
+
         player.sendMessage(
                 "§aEquipment berhasil dipasang: §f"
                         + data.getDisplayName()
@@ -177,9 +182,15 @@ public class EquipmentMenu implements Listener {
             return;
         }
 
-        ItemStack item = factory.createItem(data);
+        // Jangan berikan item jika penghapusan dari database gagal.
+        if (!manager.unequip(player, type)) {
+            player.sendMessage(
+                    "§cEquipment gagal dilepas. Silakan coba lagi."
+            );
+            return;
+        }
 
-        manager.unequip(player, type);
+        ItemStack item = factory.createItem(data);
 
         if (player.getInventory().firstEmpty() == -1) {
             player.getWorld().dropItemNaturally(
@@ -189,11 +200,24 @@ public class EquipmentMenu implements Listener {
             player.getInventory().addItem(item);
         }
 
+        updatePlayerStats(player);
+
         player.sendMessage(
                 "§eEquipment dilepas: §f" + data.getDisplayName()
         );
 
         open(player);
+    }
+
+    private void updatePlayerStats(Player player) {
+        AttributesRPG plugin = AttributesRPG.getInstance();
+
+        if (plugin == null
+                || plugin.getAttributeStatListener() == null) {
+            return;
+        }
+
+        plugin.getAttributeStatListener().applyStats(player);
     }
 
     private ItemStack createButton(
@@ -210,4 +234,4 @@ public class EquipmentMenu implements Listener {
         item.setItemMeta(meta);
         return item;
     }
-          }
+}
