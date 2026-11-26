@@ -4,8 +4,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -41,7 +43,7 @@ public class EquipmentMenu implements Listener {
 
         EquipmentType[] types = EquipmentType.values();
 
-        for (int i = 0; i < types.length; i++) {
+        for (int i = 0; i < types.length && i < slots.length; i++) {
             EquipmentData data = manager.getEquipped(
                     player, types[i]
             );
@@ -90,7 +92,7 @@ public class EquipmentMenu implements Listener {
         player.openInventory(inventory);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onMenuClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
@@ -105,6 +107,17 @@ public class EquipmentMenu implements Listener {
         if (event.getClickedInventory() == null
                 || event.getClickedInventory()
                 != event.getView().getTopInventory()) {
+            return;
+        }
+
+        if (event.getClick().isShiftClick()
+                || event.getClick().isKeyboardClick()
+                || event.getHotbarButton() != -1) {
+            return;
+        }
+
+        if (event.getAction().name().contains("COLLECT")
+                || event.getAction().name().contains("MOVE")) {
             return;
         }
 
@@ -128,6 +141,13 @@ public class EquipmentMenu implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onMenuDrag(InventoryDragEvent event) {
+        if (TITLE.equals(event.getView().getTitle())) {
+            event.setCancelled(true);
+        }
+    }
+
     private void equipFromHand(Player player) {
         ItemStack hand = player.getInventory().getItemInMainHand();
 
@@ -147,11 +167,7 @@ public class EquipmentMenu implements Listener {
             return;
         }
 
-        EquipmentData previous = manager.getEquipped(
-                player, data.getType()
-        );
-
-        if (previous != null) {
+        if (manager.getEquipped(player, data.getType()) != null) {
             player.sendMessage(
                     "§cLepas equipment lama di slot tersebut terlebih dahulu."
             );
@@ -182,7 +198,6 @@ public class EquipmentMenu implements Listener {
             return;
         }
 
-        // Jangan berikan item jika penghapusan dari database gagal.
         if (!manager.unequip(player, type)) {
             player.sendMessage(
                     "§cEquipment gagal dilepas. Silakan coba lagi."
@@ -192,12 +207,20 @@ public class EquipmentMenu implements Listener {
 
         ItemStack item = factory.createItem(data);
 
-        if (player.getInventory().firstEmpty() == -1) {
-            player.getWorld().dropItemNaturally(
-                    player.getLocation(), item
+        if (item == null) {
+            player.sendMessage(
+                    "§cItem gagal dibuat. Hubungi administrator."
             );
-        } else {
-            player.getInventory().addItem(item);
+            return;
+        }
+
+        java.util.Map<Integer, ItemStack> leftovers =
+                player.getInventory().addItem(item);
+
+        for (ItemStack leftover : leftovers.values()) {
+            player.getWorld().dropItemNaturally(
+                    player.getLocation(), leftover
+            );
         }
 
         updatePlayerStats(player);
