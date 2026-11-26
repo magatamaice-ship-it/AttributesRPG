@@ -27,6 +27,9 @@ public class PlayerDataListener implements Listener {
                     player.getName()
             );
 
+            // Pulihkan loadout skill setelah data pemain dimuat.
+            plugin.getSkillManager().loadPlayer(player);
+
             Bukkit.getScheduler().runTask(
                     plugin,
                     () -> plugin.getKnockManager().restoreKnock(player)
@@ -45,6 +48,9 @@ public class PlayerDataListener implements Listener {
         var player = event.getPlayer();
 
         plugin.getKnockManager().handleQuit(player);
+
+        // Hapus data sementara, tetapi jangan hapus loadout SQLite.
+        plugin.getSkillManager().clearPlayer(player);
 
         try {
             plugin.getPlayerDataManager().unloadPlayer(
