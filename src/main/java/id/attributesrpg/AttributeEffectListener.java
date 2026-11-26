@@ -32,7 +32,7 @@ public class AttributeEffectListener implements Listener {
 
         double damage = event.getDamage();
 
-        if (damage <= 0) {
+        if (!Double.isFinite(damage) || damage <= 0) {
             return;
         }
 
@@ -49,12 +49,12 @@ public class AttributeEffectListener implements Listener {
         EntityDamageEvent.DamageCause cause = event.getCause();
 
         boolean ranged = event.getDamager() instanceof Projectile;
-        boolean melee = cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
+
+        boolean melee =
+                cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
                 || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK;
 
-        EquipmentManager equipment = plugin.getEquipmentManager();
-
-        // Bonus damage dari atribut dan Equipment.
+        // Bonus damage atribut dan equipment.
         if (cause == EntityDamageEvent.DamageCause.MAGIC
                 || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
 
@@ -108,7 +108,7 @@ public class AttributeEffectListener implements Listener {
             damage *= 1.0 + attributeBonus + equipmentBonus;
         }
 
-        // Critical Hit untuk serangan melee dan proyektil.
+        // Critical hit untuk serangan melee dan ranged.
         if (melee || ranged) {
             damage = plugin.getCriticalHitManager().applyCritical(
                     attacker,
@@ -119,7 +119,7 @@ public class AttributeEffectListener implements Listener {
             );
         }
 
-        // Defense atribut korban.
+        // Pengurangan damage dari Defense atribut korban.
         double attributeReduction = getBonus(
                 victimData,
                 "defense",
@@ -128,7 +128,7 @@ public class AttributeEffectListener implements Listener {
                 0.15
         );
 
-        // Defense Equipment korban.
+        // Pengurangan damage dari Defense equipment korban.
         double equipmentReduction = getEquipmentBonus(
                 victim,
                 EquipmentStat.DEFENSE
@@ -140,6 +140,10 @@ public class AttributeEffectListener implements Listener {
         );
 
         damage *= 1.0 - totalReduction;
+
+        if (!Double.isFinite(damage)) {
+            return;
+        }
 
         event.setDamage(Math.max(0, damage));
     }
@@ -165,10 +169,12 @@ public class AttributeEffectListener implements Listener {
             Player player,
             EquipmentStat stat
     ) {
-        double value = plugin.getEquipmentManager().getTotalStat(
-                player.getUniqueId(),
-                stat
-        );
+        double value = plugin.getEquipmentManager()
+                .getTotalStat(player, stat);
+
+        if (!Double.isFinite(value)) {
+            return 0;
+        }
 
         return Math.max(0, value) / 100.0;
     }
@@ -185,7 +191,15 @@ public class AttributeEffectListener implements Listener {
                 defaultValue
         );
 
+        if (!Double.isFinite(perLevel) || perLevel < 0) {
+            perLevel = defaultValue;
+        }
+
         double bonus = data.getAttribute(attribute) * perLevel;
+
+        if (!Double.isFinite(bonus)) {
+            return 0;
+        }
 
         return Math.max(0, Math.min(bonus, maximum));
     }
