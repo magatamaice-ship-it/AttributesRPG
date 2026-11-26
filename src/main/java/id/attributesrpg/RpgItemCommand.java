@@ -41,17 +41,14 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("create")) {
-            createItem(sender, args);
-            return true;
+        switch (args[0].toLowerCase(Locale.ROOT)) {
+            case "create" -> createItem(sender, args);
+            case "give" -> giveItem(sender, args);
+            case "list" -> listTemplates(sender);
+            case "delete" -> deleteTemplate(sender, args);
+            default -> sendHelp(sender);
         }
 
-        if (args[0].equalsIgnoreCase("give")) {
-            giveItem(sender, args);
-            return true;
-        }
-
-        sendHelp(sender);
         return true;
     }
 
@@ -61,13 +58,15 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        if (args.length < 5) {
-            sender.sendMessage("§cFormat: /rpgitem create <id> <nama> <type> <rarity> [STAT=VALUE]");
+        if (args.length < 6) {
+            player.sendMessage(
+                    "§c/rpgitem create <id> <nama> <type> <rarity> <STAT=VALUE>"
+            );
             return;
         }
 
         try {
-            String id = args[1];
+            String id = args[1].toLowerCase(Locale.ROOT);
 
             if (!id.matches("[a-zA-Z0-9_-]+")) {
                 player.sendMessage("§cID hanya boleh berisi huruf, angka, _ dan -.");
@@ -112,11 +111,6 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
                 }
             }
 
-            if (stats.isEmpty()) {
-                player.sendMessage("§cMasukkan minimal satu stat.");
-                return;
-            }
-
             EquipmentData data = new EquipmentData(
                     id,
                     displayName,
@@ -125,22 +119,27 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
                     stats
             );
 
-            ItemStack item = plugin.getEquipmentItemFactory()
-                    .createItem(data);
+            boolean saved = plugin.getEquipmentTemplateManager()
+                    .saveTemplate(data);
 
-            Map<Integer, ItemStack> leftovers =
-                    player.getInventory().addItem(item);
+            if (!saved) {
+                player.sendMessage(
+                        "§cTemplate gagal disimpan. ID mungkin sudah digunakan."
+                );
+                return;
+            }
 
-            leftovers.values().forEach(leftover ->
-                    player.getWorld().dropItemNaturally(
-                            player.getLocation(), leftover
-                    )
+            giveStack(player, plugin.getEquipmentItemFactory()
+                    .createItem(data));
+
+            player.sendMessage(
+                    "§aTemplate berhasil disimpan: §f" + id
             );
 
-            player.sendMessage("§aEquipment berhasil dibuat: §f" + displayName);
-
         } catch (IllegalArgumentException exception) {
-            player.sendMessage("§cType, rarity, atau stat tidak valid.");
+            player.sendMessage(
+                    "§cType, rarity, atau stat tidak valid."
+            );
         } catch (Exception exception) {
             player.sendMessage("§cGagal membuat equipment.");
             plugin.getLogger().warning(
@@ -150,25 +149,52 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
     }
 
     private void giveItem(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cPerintah ini hanya bisa digunakan pemain.");
-            return;
-        }
-
-        if (args.length != 2) {
-            player.sendMessage("§cFormat: /rpgitem give <player>");
+        if (args.length != 2 && args.length != 3) {
+            sender.sendMessage("§c/rpgitem give <player> [id]");
             return;
         }
 
         Player target = Bukkit.getPlayerExact(args[1]);
 
         if (target == null) {
-            player.sendMessage("§cPemain tersebut tidak ditemukan atau offline.");
+            sender.sendMessage("§cPemain tidak ditemukan atau offline.");
+            return;
+        }
+
+        if (args.length == 3) {
+            EquipmentData data = plugin.getEquipmentTemplateManager()
+                    .getTemplate(args[2]);
+
+            if (data == null) {
+                sender.sendMessage("§cTemplate tidak ditemukan: " + args[2]);
+                return;
+            }
+
+            ItemStack item = plugin.getEquipmentItemFactory()
+                    .createItem(data);
+
+            giveStack(target, item);
+
+            sender.sendMessage(
+                    "§aEquipment §f" + data.getDisplayName()
+                            + " §atelah diberikan kepada §f"
+                            + target.getName()
+            );
+
+            target.sendMessage(
+                    "§aKamu menerima equipment: §f"
+                            + data.getDisplayName()
+            );
+            return;
+        }
+
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cConsole harus menggunakan ID template.");
             return;
         }
 
         if (target.equals(player)) {
-            player.sendMessage("§cKamu tidak bisa memberikan item kepada diri sendiri.");
+            player.sendMessage("§cTidak bisa memberikan item kepada diri sendiri.");
             return;
         }
 
@@ -181,28 +207,72 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
         }
 
         ItemStack transferred = held.clone();
-        player.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+        player.getInventory().setItemInMainHand(
+                new ItemStack(Material.AIR)
+        );
 
+        giveStack(target, transferred);
+
+        player.sendMessage("§aEquipment diberikan kepada " + target.getName());
+        target.sendMessage("§aKamu menerima equipment dari " + player.getName());
+    }
+
+    private void giveStack(Player target, ItemStack item) {
         Map<Integer, ItemStack> leftovers =
-                target.getInventory().addItem(transferred);
+                target.getInventory().addItem(item);
 
         leftovers.values().forEach(leftover ->
                 target.getWorld().dropItemNaturally(
                         target.getLocation(), leftover
                 )
         );
+    }
 
-        player.sendMessage("§aEquipment diberikan kepada §f" + target.getName());
-        target.sendMessage("§aKamu menerima equipment dari §f" + player.getName());
+    private void listTemplates(CommandSender sender) {
+        var templates = plugin.getEquipmentTemplateManager()
+                .getTemplates();
+
+        if (templates.isEmpty()) {
+            sender.sendMessage("§eBelum ada template equipment.");
+            return;
+        }
+
+        sender.sendMessage("§6===== Equipment Templates =====");
+
+        for (EquipmentData data : templates) {
+            sender.sendMessage(
+                    "§e" + data.getId()
+                            + " §7- §f" + data.getDisplayName()
+                            + " §7(" + data.getType().name()
+                            + ", " + data.getRarity().name() + ")"
+            );
+        }
+    }
+
+    private void deleteTemplate(CommandSender sender, String[] args) {
+        if (args.length != 2) {
+            sender.sendMessage("§c/rpgitem delete <id>");
+            return;
+        }
+
+        boolean deleted = plugin.getEquipmentTemplateManager()
+                .deleteTemplate(args[1]);
+
+        if (deleted) {
+            sender.sendMessage("§aTemplate berhasil dihapus.");
+        } else {
+            sender.sendMessage("§cTemplate tidak ditemukan atau gagal dihapus.");
+        }
     }
 
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("§6===== AttributesRPG Item =====");
-        sender.sendMessage("§e/rpgitem create <id> <nama> <type> <rarity> [STAT=VALUE]");
-        sender.sendMessage("§e/rpgitem give <player>");
-        sender.sendMessage("§7Type: WEAPON, HELMET, CHESTPLATE, LEGGINGS, BOOTS, ACCESSORY");
-        sender.sendMessage("§7Rarity: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC");
-        sender.sendMessage("§7Contoh stat: STRENGTH=10 DEFENSE=5");
+        sender.sendMessage("§e/rpgitem create <id> <nama> <type> <rarity> <STAT=VALUE>");
+        sender.sendMessage("§e/rpgitem give <player> <id>");
+        sender.sendMessage("§e/rpgitem give <player> §7- pindahkan item yang dipegang");
+        sender.sendMessage("§e/rpgitem list");
+        sender.sendMessage("§e/rpgitem delete <id>");
+        sender.sendMessage("§e/rpgitem help");
     }
 
     @Override
@@ -215,31 +285,47 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
         List<String> suggestions = new ArrayList<>();
 
         if (args.length == 1) {
-            suggestions.add("create");
-            suggestions.add("give");
-            suggestions.add("help");
-        } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
+            suggestions.addAll(List.of(
+                    "create", "give", "list", "delete", "help"
+            ));
+        } else if (args.length == 2
+                && args[0].equalsIgnoreCase("give")) {
             Bukkit.getOnlinePlayers().forEach(player ->
                     suggestions.add(player.getName())
             );
-        } else if (args.length == 4 && args[0].equalsIgnoreCase("create")) {
+        } else if (args.length == 2
+                && args[0].equalsIgnoreCase("delete")) {
+            plugin.getEquipmentTemplateManager()
+                    .getTemplates()
+                    .forEach(data -> suggestions.add(data.getId()));
+        } else if (args.length == 3
+                && args[0].equalsIgnoreCase("give")) {
+            plugin.getEquipmentTemplateManager()
+                    .getTemplates()
+                    .forEach(data -> suggestions.add(data.getId()));
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("create")) {
             for (EquipmentType type : EquipmentType.values()) {
                 suggestions.add(type.name());
             }
-        } else if (args.length == 5 && args[0].equalsIgnoreCase("create")) {
+        } else if (args.length == 5
+                && args[0].equalsIgnoreCase("create")) {
             for (EquipmentRarity rarity : EquipmentRarity.values()) {
                 suggestions.add(rarity.name());
             }
-        } else if (args.length >= 6 && args[0].equalsIgnoreCase("create")) {
+        } else if (args.length >= 6
+                && args[0].equalsIgnoreCase("create")) {
             for (EquipmentStat stat : EquipmentStat.values()) {
                 suggestions.add(stat.name() + "=");
             }
         }
 
-        String current = args[args.length - 1].toLowerCase(Locale.ROOT);
+        String current = args[args.length - 1]
+                .toLowerCase(Locale.ROOT);
 
         return suggestions.stream()
-                .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(current))
+                .filter(value -> value.toLowerCase(Locale.ROOT)
+                        .startsWith(current))
                 .toList();
     }
-                  }
+}
