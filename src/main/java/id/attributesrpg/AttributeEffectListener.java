@@ -21,72 +21,79 @@ public class AttributeEffectListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
 
+        // Sistem Combat AttributesRPG hanya berlaku untuk PvP.
+        if (!(event.getEntity() instanceof Player victim)) {
+            return;
+        }
+
+        Player attacker = getPlayerAttacker(event);
+
+        if (attacker == null || attacker.equals(victim)) {
+            return;
+        }
+
         double damage = event.getDamage();
 
         if (damage <= 0) {
             return;
         }
 
-        Player attacker = getPlayerAttacker(event);
+        PlayerData attackerData = plugin.getPlayerDataManager()
+                .getPlayer(attacker.getUniqueId());
 
-        if (attacker != null) {
-            PlayerData attackerData = plugin.getPlayerDataManager()
-                    .getPlayer(attacker.getUniqueId());
+        PlayerData victimData = plugin.getPlayerDataManager()
+                .getPlayer(victim.getUniqueId());
 
-            if (attackerData != null) {
-                EntityDamageEvent.DamageCause cause = event.getCause();
-
-                if (cause == EntityDamageEvent.DamageCause.MAGIC
-                        || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
-
-                    damage *= 1.0 + getBonus(
-                            attackerData,
-                            "intelligence",
-                            "attributes.intelligence.magic-damage-per-level",
-                            0.005,
-                            0.25
-                    );
-
-                } else if (event.getDamager() instanceof Projectile) {
-
-                    damage *= 1.0 + getBonus(
-                            attackerData,
-                            "dexterity",
-                            "attributes.dexterity.ranged-damage-per-level",
-                            0.004,
-                            0.20
-                    );
-
-                } else if (cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
-                        || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) {
-
-                    damage *= 1.0 + getBonus(
-                            attackerData,
-                            "strength",
-                            "attributes.strength.damage-per-level",
-                            0.005,
-                            0.25
-                    );
-                }
-            }
+        if (attackerData == null || victimData == null) {
+            return;
         }
 
-        if (event.getEntity() instanceof Player victim) {
-            PlayerData victimData = plugin.getPlayerDataManager()
-                    .getPlayer(victim.getUniqueId());
+        EntityDamageEvent.DamageCause cause = event.getCause();
 
-            if (victimData != null) {
-                double reduction = getBonus(
-                        victimData,
-                        "defense",
-                        "attributes.defense.reduction-per-level",
-                        0.003,
-                        0.15
-                );
+        // Bonus damage penyerang.
+        if (cause == EntityDamageEvent.DamageCause.MAGIC
+                || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
 
-                damage *= 1.0 - reduction;
-            }
+            damage *= 1.0 + getBonus(
+                    attackerData,
+                    "intelligence",
+                    "attributes.intelligence.magic-damage-per-level",
+                    0.005,
+                    0.25
+            );
+
+        } else if (event.getDamager() instanceof Projectile) {
+
+            damage *= 1.0 + getBonus(
+                    attackerData,
+                    "dexterity",
+                    "attributes.dexterity.ranged-damage-per-level",
+                    0.004,
+                    0.20
+            );
+
+        } else if (cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
+                || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) {
+
+            damage *= 1.0 + getBonus(
+                    attackerData,
+                    "strength",
+                    "attributes.strength.damage-per-level",
+                    0.005,
+                    0.25
+            );
         }
+
+        // Pengurangan damage berdasarkan Defense korban.
+        double reduction = getBonus(
+                victimData,
+                "defense",
+                "attributes.defense.reduction-per-level",
+                0.003,
+                0.15
+        );
+
+        damage *= 1.0 - reduction;
 
         event.setDamage(Math.max(0, damage));
     }
