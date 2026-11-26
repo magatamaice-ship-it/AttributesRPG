@@ -5,6 +5,7 @@ import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
@@ -57,6 +58,9 @@ public class DatabaseManager {
                     endurance INTEGER NOT NULL DEFAULT 0,
                     dexterity INTEGER NOT NULL DEFAULT 0,
 
+                    knocked INTEGER NOT NULL DEFAULT 0,
+                    knock_expires_at INTEGER NOT NULL DEFAULT 0,
+
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
@@ -68,7 +72,52 @@ public class DatabaseManager {
             """);
         }
 
-        plugin.getLogger().info("Database SQLite berhasil disiapkan!");
+        // Migrasi database lama tanpa menghapus data pemain.
+        ensureColumn(
+                "knocked",
+                "INTEGER NOT NULL DEFAULT 0"
+        );
+
+        ensureColumn(
+                "knock_expires_at",
+                "INTEGER NOT NULL DEFAULT 0"
+        );
+
+        plugin.getLogger().info(
+                "Database SQLite berhasil disiapkan!"
+        );
+    }
+
+    private void ensureColumn(String column, String definition)
+            throws SQLException {
+
+        boolean exists = false;
+
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(
+                     "PRAGMA table_info(player_data);")) {
+
+            while (result.next()) {
+                if (column.equalsIgnoreCase(
+                        result.getString("name"))) {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+
+        if (!exists) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "ALTER TABLE player_data ADD COLUMN "
+                                + column + " " + definition + ";"
+                );
+            }
+
+            plugin.getLogger().info(
+                    "Kolom database ditambahkan: " + column
+            );
+        }
     }
 
     public void createPlayerIfAbsent(UUID uuid, String playerName)
