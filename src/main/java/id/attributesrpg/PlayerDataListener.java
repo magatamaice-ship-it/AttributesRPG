@@ -1,4 +1,3 @@
-
 package id.attributesrpg;
 
 import org.bukkit.Bukkit;
@@ -27,8 +26,10 @@ public class PlayerDataListener implements Listener {
                     player.getName()
             );
 
-            // Pulihkan loadout skill setelah data pemain dimuat.
             plugin.getSkillManager().loadPlayer(player);
+
+            // Muat equipment yang tersimpan di SQLite.
+            plugin.getEquipmentManager().loadPlayer(player);
 
             Bukkit.getScheduler().runTask(
                     plugin,
@@ -49,8 +50,10 @@ public class PlayerDataListener implements Listener {
 
         plugin.getKnockManager().handleQuit(player);
 
-        // Hapus data sementara, tetapi jangan hapus loadout SQLite.
         plugin.getSkillManager().clearPlayer(player);
+
+        // Hapus data equipment dari memori, bukan dari SQLite.
+        plugin.getEquipmentManager().clearPlayer(player);
 
         try {
             plugin.getPlayerDataManager().unloadPlayer(
