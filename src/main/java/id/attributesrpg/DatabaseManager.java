@@ -70,18 +70,23 @@ public class DatabaseManager {
                 CREATE INDEX IF NOT EXISTS idx_player_level
                 ON player_data(rpg_level DESC);
             """);
+
+            statement.execute("""
+                CREATE TABLE IF NOT EXISTS player_skills (
+                    uuid TEXT NOT NULL,
+                    slot INTEGER NOT NULL,
+                    skill_name TEXT NOT NULL,
+                    PRIMARY KEY (uuid, slot),
+                    FOREIGN KEY (uuid)
+                        REFERENCES player_data(uuid)
+                        ON DELETE CASCADE
+                );
+            """);
         }
 
-        // Migrasi database lama tanpa menghapus data pemain.
-        ensureColumn(
-                "knocked",
-                "INTEGER NOT NULL DEFAULT 0"
-        );
-
-        ensureColumn(
-                "knock_expires_at",
-                "INTEGER NOT NULL DEFAULT 0"
-        );
+        ensureColumn("knocked", "INTEGER NOT NULL DEFAULT 0");
+        ensureColumn("knock_expires_at",
+                "INTEGER NOT NULL DEFAULT 0");
 
         plugin.getLogger().info(
                 "Database SQLite berhasil disiapkan!"
@@ -119,7 +124,6 @@ public class DatabaseManager {
             );
         }
     }
-
     public void createPlayerIfAbsent(UUID uuid, String playerName)
             throws SQLException {
 
@@ -157,6 +161,59 @@ public class DatabaseManager {
             statement.setString(2, uuid.toString());
             statement.executeUpdate();
         }
+    }
+
+    public void saveSkill(UUID uuid, int slot, String skillName)
+            throws SQLException {
+
+        if (slot < 1 || slot > 3) {
+            throw new SQLException("Slot skill tidak valid.");
+        }
+
+        String sql = """
+            INSERT INTO player_skills (uuid, slot, skill_name)
+            VALUES (?, ?, ?)
+            ON CONFLICT(uuid, slot)
+            DO UPDATE SET skill_name = excluded.skill_name;
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(1, uuid.toString());
+            statement.setInt(2, slot);
+            statement.setString(3, skillName);
+            statement.executeUpdate();
+        }
+    }
+
+    public void removeSkill(UUID uuid, int slot)
+            throws SQLException {
+
+        String sql = """
+            DELETE FROM player_skills
+            WHERE uuid = ? AND slot = ?;
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(1, uuid.toString());
+            statement.setInt(2, slot);
+            statement.executeUpdate();
+        }
+    }
+
+    public ResultSet getSkills(UUID uuid) throws SQLException {
+        PreparedStatement statement = connection.prepareStatement("""
+            SELECT slot, skill_name
+            FROM player_skills
+            WHERE uuid = ?
+            ORDER BY slot ASC;
+        """);
+
+        statement.setString(1, uuid.toString());
+        return statement.executeQuery();
     }
 
     public Connection getConnection() {
