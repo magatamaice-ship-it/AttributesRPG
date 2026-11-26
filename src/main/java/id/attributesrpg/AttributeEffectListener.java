@@ -1,3 +1,4 @@
+
 package id.attributesrpg;
 
 import org.bukkit.entity.Player;
@@ -10,6 +11,9 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
 public class AttributeEffectListener implements Listener {
+
+    private static final String SKILL_DAMAGE_KEY =
+            "attributesrpg_skill_damage";
 
     private final AttributesRPG plugin;
 
@@ -36,13 +40,19 @@ public class AttributeEffectListener implements Listener {
             return;
         }
 
-        PlayerData attackerData = plugin.getPlayerDataManager()
-                .getPlayer(attacker.getUniqueId());
-
         PlayerData victimData = plugin.getPlayerDataManager()
                 .getPlayer(victim.getUniqueId());
 
-        if (attackerData == null || victimData == null) {
+        if (victimData == null) {
+            return;
+        }
+
+        boolean skillDamage = victim.hasMetadata(SKILL_DAMAGE_KEY);
+
+        PlayerData attackerData = plugin.getPlayerDataManager()
+                .getPlayer(attacker.getUniqueId());
+
+        if (attackerData == null) {
             return;
         }
 
@@ -54,72 +64,74 @@ public class AttributeEffectListener implements Listener {
                 cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
                 || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK;
 
-        // Bonus damage atribut dan equipment.
-        if (cause == EntityDamageEvent.DamageCause.MAGIC
-                || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
+        // Bonus atribut dan critical hanya untuk serangan normal.
+        if (!skillDamage) {
 
-            double attributeBonus = getBonus(
-                    attackerData,
-                    "intelligence",
-                    "attributes.intelligence.magic-damage-per-level",
-                    0.005,
-                    0.25
-            );
+            if (cause == EntityDamageEvent.DamageCause.MAGIC
+                    || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
 
-            double equipmentBonus = getEquipmentBonus(
-                    attacker,
-                    EquipmentStat.INTELLIGENCE
-            );
+                double attributeBonus = getBonus(
+                        attackerData,
+                        "intelligence",
+                        "attributes.intelligence.magic-damage-per-level",
+                        0.005,
+                        0.25
+                );
 
-            damage *= 1.0 + attributeBonus + equipmentBonus;
+                double equipmentBonus = getEquipmentBonus(
+                        attacker,
+                        EquipmentStat.INTELLIGENCE
+                );
 
-        } else if (ranged) {
+                damage *= 1.0 + attributeBonus + equipmentBonus;
 
-            double attributeBonus = getBonus(
-                    attackerData,
-                    "dexterity",
-                    "attributes.dexterity.ranged-damage-per-level",
-                    0.004,
-                    0.20
-            );
+            } else if (ranged) {
 
-            double equipmentBonus = getEquipmentBonus(
-                    attacker,
-                    EquipmentStat.DEXTERITY
-            );
+                double attributeBonus = getBonus(
+                        attackerData,
+                        "dexterity",
+                        "attributes.dexterity.ranged-damage-per-level",
+                        0.004,
+                        0.20
+                );
 
-            damage *= 1.0 + attributeBonus + equipmentBonus;
+                double equipmentBonus = getEquipmentBonus(
+                        attacker,
+                        EquipmentStat.DEXTERITY
+                );
 
-        } else if (melee) {
+                damage *= 1.0 + attributeBonus + equipmentBonus;
 
-            double attributeBonus = getBonus(
-                    attackerData,
-                    "strength",
-                    "attributes.strength.damage-per-level",
-                    0.005,
-                    0.25
-            );
+            } else if (melee) {
 
-            double equipmentBonus = getEquipmentBonus(
-                    attacker,
-                    EquipmentStat.STRENGTH
-            );
+                double attributeBonus = getBonus(
+                        attackerData,
+                        "strength",
+                        "attributes.strength.damage-per-level",
+                        0.005,
+                        0.25
+                );
 
-            damage *= 1.0 + attributeBonus + equipmentBonus;
+                double equipmentBonus = getEquipmentBonus(
+                        attacker,
+                        EquipmentStat.STRENGTH
+                );
+
+                damage *= 1.0 + attributeBonus + equipmentBonus;
+            }
+
+            if (melee || ranged) {
+                damage = plugin.getCriticalHitManager().applyCritical(
+                        attacker,
+                        victim,
+                        attackerData,
+                        ranged,
+                        damage
+                );
+            }
         }
 
-        // Critical hit untuk serangan melee dan ranged.
-        if (melee || ranged) {
-            damage = plugin.getCriticalHitManager().applyCritical(
-                    attacker,
-                    victim,
-                    attackerData,
-                    ranged,
-                    damage
-            );
-        }
-
-        // Pengurangan damage dari Defense atribut korban.
+        // Defense tetap berlaku untuk serangan normal dan skill.
         double attributeReduction = getBonus(
                 victimData,
                 "defense",
@@ -128,7 +140,6 @@ public class AttributeEffectListener implements Listener {
                 0.15
         );
 
-        // Pengurangan damage dari Defense equipment korban.
         double equipmentReduction = getEquipmentBonus(
                 victim,
                 EquipmentStat.DEFENSE
