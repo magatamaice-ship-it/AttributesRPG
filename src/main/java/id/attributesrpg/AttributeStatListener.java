@@ -1,4 +1,3 @@
-
 package id.attributesrpg;
 
 import org.bukkit.NamespacedKey;
@@ -44,15 +43,45 @@ public class AttributeStatListener implements Listener {
             return;
         }
 
-        double healthBonus = data.getAttribute("vitality")
-                * plugin.getConfig().getDouble(
+        EquipmentManager equipment = plugin.getEquipmentManager();
+
+        double equipmentVitality = equipment.getTotalStat(
+                player,
+                EquipmentStat.VITALITY
+        );
+
+        double equipmentHealth = equipment.getTotalStat(
+                player,
+                EquipmentStat.HEALTH
+        );
+
+        double healthPerLevel = plugin.getConfig().getDouble(
                 "attributes.vitality.health-per-level", 0.2
         );
 
-        double speedBonus = data.getAttribute("agility")
-                * plugin.getConfig().getDouble(
+        double healthBonus =
+                (data.getAttribute("vitality") + equipmentVitality)
+                        * healthPerLevel
+                        + equipmentHealth;
+
+        double equipmentAgility = equipment.getTotalStat(
+                player,
+                EquipmentStat.AGILITY
+        );
+
+        double equipmentSpeed = equipment.getTotalStat(
+                player,
+                EquipmentStat.MOVEMENT_SPEED
+        );
+
+        double speedPerLevel = plugin.getConfig().getDouble(
                 "attributes.agility.speed-per-level", 0.002
         );
+
+        double speedBonus =
+                (data.getAttribute("agility") + equipmentAgility)
+                        * speedPerLevel
+                        + equipmentSpeed / 100.0;
 
         applyModifier(
                 player,
