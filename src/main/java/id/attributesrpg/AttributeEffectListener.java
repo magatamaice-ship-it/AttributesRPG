@@ -21,7 +21,6 @@ public class AttributeEffectListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
 
-        // Sistem Combat AttributesRPG hanya berlaku untuk PvP.
         if (!(event.getEntity() instanceof Player victim)) {
             return;
         }
@@ -50,7 +49,11 @@ public class AttributeEffectListener implements Listener {
 
         EntityDamageEvent.DamageCause cause = event.getCause();
 
-        // Bonus damage penyerang.
+        boolean ranged = event.getDamager() instanceof Projectile;
+        boolean melee = cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
+                || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK;
+
+        // Bonus damage berdasarkan atribut penyerang.
         if (cause == EntityDamageEvent.DamageCause.MAGIC
                 || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
 
@@ -62,7 +65,7 @@ public class AttributeEffectListener implements Listener {
                     0.25
             );
 
-        } else if (event.getDamager() instanceof Projectile) {
+        } else if (ranged) {
 
             damage *= 1.0 + getBonus(
                     attackerData,
@@ -72,8 +75,7 @@ public class AttributeEffectListener implements Listener {
                     0.20
             );
 
-        } else if (cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
-                || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) {
+        } else if (melee) {
 
             damage *= 1.0 + getBonus(
                     attackerData,
@@ -81,6 +83,17 @@ public class AttributeEffectListener implements Listener {
                     "attributes.strength.damage-per-level",
                     0.005,
                     0.25
+            );
+        }
+
+        // Critical Hit hanya untuk serangan melee dan proyektil.
+        if (melee || ranged) {
+            damage = plugin.getCriticalHitManager().applyCritical(
+                    attacker,
+                    victim,
+                    attackerData,
+                    ranged,
+                    damage
             );
         }
 
