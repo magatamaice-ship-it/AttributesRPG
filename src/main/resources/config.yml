@@ -1,3 +1,4 @@
+
 # AttributesRPG Configuration
 
 settings:
@@ -70,6 +71,32 @@ attributes:
     max-level: 50
     ranged-damage-per-level: 0.004
 
+combat:
+  pvp-only: true
+
+  critical:
+    enabled: true
+
+    # Peluang Critical dasar.
+    base-chance: 0.05
+
+    # Tambahan peluang Critical dari Luck.
+    luck-chance-per-level: 0.005
+
+    # Batas maksimal peluang Critical.
+    max-chance: 0.30
+
+    # Tambahan damage Critical dasar (+50%).
+    base-damage-bonus: 0.50
+
+    # Critical Damage melee dari Strength.
+    strength-damage-per-level: 0.01
+
+    # Critical Damage ranged dari Dexterity.
+    dexterity-damage-per-level: 0.01
+
+    # Batas maksimal tambahan Critical Damage (+100%).
+    max-damage-bonus: 1.00
+
 database:
   file: players.db
-  
