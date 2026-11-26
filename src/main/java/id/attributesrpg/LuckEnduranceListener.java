@@ -1,4 +1,3 @@
-
 package id.attributesrpg;
 
 import org.bukkit.entity.Player;
@@ -51,13 +50,19 @@ public class LuckEnduranceListener implements Listener {
             return;
         }
 
-        double chance = data.getAttribute("luck")
+        double attributeLuck = data.getAttribute("luck")
                 * plugin.getConfig().getDouble(
                 "attributes.luck.loot-chance-per-level",
                 0.002
         );
 
-        chance = Math.min(chance, 0.10);
+        double equipmentLuck = plugin.getEquipmentManager()
+                .getTotalStat(killer, EquipmentStat.LUCK) / 100.0;
+
+        double chance = Math.min(
+                0.10,
+                Math.max(0, attributeLuck + equipmentLuck)
+        );
 
         if (ThreadLocalRandom.current().nextDouble() >= chance) {
             return;
@@ -101,13 +106,19 @@ public class LuckEnduranceListener implements Listener {
             return;
         }
 
-        double chance = data.getAttribute("endurance")
+        double attributeEndurance = data.getAttribute("endurance")
                 * plugin.getConfig().getDouble(
                 "attributes.endurance.effect-resistance-per-level",
                 0.003
         );
 
-        chance = Math.min(chance, 0.15);
+        double equipmentEndurance = plugin.getEquipmentManager()
+                .getTotalStat(player, EquipmentStat.ENDURANCE) / 100.0;
+
+        double chance = Math.min(
+                0.50,
+                Math.max(0, attributeEndurance + equipmentEndurance)
+        );
 
         if (ThreadLocalRandom.current().nextDouble() < chance) {
             event.setCancelled(true);
