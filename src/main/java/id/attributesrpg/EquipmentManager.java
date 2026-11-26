@@ -39,26 +39,33 @@ public class EquipmentManager {
     }
 
     public boolean equip(Player player, EquipmentData equipment) {
-        if (player == null || !isValidEquipment(equipment)) {
+        if (player == null
+                || plugin == null
+                || plugin.getDatabaseManager() == null
+                || !isValidEquipment(equipment)) {
             return false;
         }
 
         UUID uuid = player.getUniqueId();
 
         Map<EquipmentType, EquipmentData> items =
-                equipped.computeIfAbsent(
-                        uuid,
-                        key -> new EnumMap<>(EquipmentType.class)
-                );
+                equipped.get(uuid);
 
-        if (items.containsKey(equipment.getType())) {
+        if (items != null && items.containsKey(equipment.getType())) {
             return false;
         }
 
         try {
             plugin.getDatabaseManager().saveEquipment(uuid, equipment);
+
+            if (items == null) {
+                items = new EnumMap<>(EquipmentType.class);
+                equipped.put(uuid, items);
+            }
+
             items.put(equipment.getType(), equipment);
             return true;
+
         } catch (SQLException exception) {
             plugin.getLogger().severe(
                     "Gagal menyimpan equipment: "
@@ -73,9 +80,10 @@ public class EquipmentManager {
                 || equipment.getType() == null
                 || equipment.getRarity() == null
                 || equipment.getId() == null
-                || equipment.getId().isBlank()
+                || !equipment.getId().matches("[a-zA-Z0-9_-]{2,32}")
                 || equipment.getDisplayName() == null
                 || equipment.getDisplayName().isBlank()
+                || equipment.getStats() == null
                 || equipment.getStats().isEmpty()) {
             return false;
         }
@@ -92,13 +100,11 @@ public class EquipmentManager {
             }
 
             double cap = STAT_CAPS.getOrDefault(stat, 0.0);
+            double scaled = value
+                    * equipment.getRarity().getBonusMultiplier();
 
-            if (cap <= 0 || value > cap) {
-                return false;
-            }
-
-            if (value * equipment.getRarity().getBonusMultiplier()
-                    > cap) {
+            if (cap <= 0 || !Double.isFinite(scaled)
+                    || scaled > cap) {
                 return false;
             }
         }
@@ -107,11 +113,15 @@ public class EquipmentManager {
     }
 
     public boolean unequip(Player player, EquipmentType type) {
-        if (player == null || type == null) {
+        if (player == null
+                || type == null
+                || plugin == null
+                || plugin.getDatabaseManager() == null) {
             return false;
         }
 
         UUID uuid = player.getUniqueId();
+
         Map<EquipmentType, EquipmentData> items = equipped.get(uuid);
 
         if (items == null || !items.containsKey(type)) {
@@ -120,6 +130,7 @@ public class EquipmentManager {
 
         try {
             plugin.getDatabaseManager().removeEquipment(uuid, type);
+
             items.remove(type);
 
             if (items.isEmpty()) {
@@ -127,6 +138,7 @@ public class EquipmentManager {
             }
 
             return true;
+
         } catch (SQLException exception) {
             plugin.getLogger().severe(
                     "Gagal menghapus equipment: "
@@ -137,12 +149,16 @@ public class EquipmentManager {
     }
 
     public void loadPlayer(Player player) {
-        if (player == null) return;
+        if (player == null
+                || plugin == null
+                || plugin.getDatabaseManager() == null) {
+            return;
+        }
 
         UUID uuid = player.getUniqueId();
 
         try {
-            Map<EquipmentType, EquipmentData> items =
+            Map<EquipmentType, EquipmentData> loaded =
                     new EnumMap<>(EquipmentType.class);
 
             for (EquipmentData data :
@@ -156,13 +172,22 @@ public class EquipmentManager {
                     continue;
                 }
 
-                items.put(data.getType(), data);
+                if (loaded.containsKey(data.getType())) {
+                    plugin.getLogger().warning(
+                            "Equipment duplikat dilewati untuk "
+                                    + player.getName()
+                                    + ": " + data.getType()
+                    );
+                    continue;
+                }
+
+                loaded.put(data.getType(), data);
             }
 
-            if (items.isEmpty()) {
+            if (loaded.isEmpty()) {
                 equipped.remove(uuid);
             } else {
-                equipped.put(uuid, items);
+                equipped.put(uuid, loaded);
             }
 
         } catch (SQLException exception) {
@@ -176,7 +201,9 @@ public class EquipmentManager {
     public EquipmentData getEquipped(
             Player player, EquipmentType type
     ) {
-        if (player == null || type == null) return null;
+        if (player == null || type == null) {
+            return null;
+        }
 
         Map<EquipmentType, EquipmentData> items =
                 equipped.get(player.getUniqueId());
@@ -185,26 +212,47 @@ public class EquipmentManager {
     }
 
     public double getTotalStat(Player player, EquipmentStat stat) {
-        if (player == null || stat == null) return 0.0;
+        if (player == null || stat == null) {
+            return 0.0;
+        }
 
         Map<EquipmentType, EquipmentData> items =
                 equipped.get(player.getUniqueId());
 
-        if (items == null) return 0.0;
+        if (items == null) {
+            return 0.0;
+        }
 
         double total = 0.0;
 
         for (EquipmentData item : items.values()) {
-            total += item.getScaledStat(stat);
+            if (item == null) {
+                continue;
+            }
+
+            double value = item.getScaledStat(stat);
+
+            if (Double.isFinite(value) && value > 0) {
+                total += value;
+            }
         }
 
-        return Math.min(total, STAT_CAPS.getOrDefault(stat, 0.0));
+        if (!Double.isFinite(total)) {
+            return STAT_CAPS.getOrDefault(stat, 0.0);
+        }
+
+        return Math.min(
+                total,
+                STAT_CAPS.getOrDefault(stat, 0.0)
+        );
     }
 
     public Map<EquipmentType, EquipmentData> getEquippedItems(
             Player player
     ) {
-        if (player == null) return Map.of();
+        if (player == null) {
+            return Map.of();
+        }
 
         Map<EquipmentType, EquipmentData> items =
                 equipped.get(player.getUniqueId());
