@@ -14,7 +14,11 @@ public class PlayerData {
     private int exp;
     private int attributePoints;
 
-    private final Map<String, Integer> attributes = new LinkedHashMap<>();
+    private boolean knocked;
+    private long knockExpiresAt;
+
+    private final Map<String, Integer> attributes =
+            new LinkedHashMap<>();
 
     private static final String[] ATTRIBUTE_NAMES = {
         "strength",
@@ -34,6 +38,9 @@ public class PlayerData {
         for (String attribute : ATTRIBUTE_NAMES) {
             attributes.put(attribute, 0);
         }
+
+        this.knocked = false;
+        this.knockExpiresAt = 0L;
     }
 
     public UUID getUuid() {
@@ -70,6 +77,31 @@ public class PlayerData {
 
     public void setAttributePoints(int points) {
         this.attributePoints = Math.max(0, points);
+    }
+
+    public boolean isKnocked() {
+        return knocked;
+    }
+
+    public void setKnocked(boolean knocked) {
+        this.knocked = knocked;
+
+        if (!knocked) {
+            this.knockExpiresAt = 0L;
+        }
+    }
+
+    public long getKnockExpiresAt() {
+        return knockExpiresAt;
+    }
+
+    public void setKnockExpiresAt(long knockExpiresAt) {
+        this.knockExpiresAt = Math.max(0L, knockExpiresAt);
+    }
+
+    public void clearKnockState() {
+        this.knocked = false;
+        this.knockExpiresAt = 0L;
     }
 
     public int getAttribute(String name) {
