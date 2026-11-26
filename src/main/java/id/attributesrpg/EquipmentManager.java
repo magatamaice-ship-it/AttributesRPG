@@ -1,276 +1,305 @@
 
 package id.attributesrpg;
 
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.Vector;
 
-import java.sql.SQLException;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class EquipmentManager {
+public class SkillExecutionManager {
+
+    private static final String SKILL_DAMAGE_KEY =
+            "attributesrpg_skill_damage";
 
     private final AttributesRPG plugin;
 
-    private final Map<UUID, Map<EquipmentType, EquipmentData>> equipped =
-            new HashMap<>();
-
-    private static final Map<EquipmentStat, Double> STAT_CAPS =
-            new EnumMap<>(EquipmentStat.class);
-
-    static {
-        STAT_CAPS.put(EquipmentStat.STRENGTH, 15.0);
-        STAT_CAPS.put(EquipmentStat.DEFENSE, 10.0);
-        STAT_CAPS.put(EquipmentStat.VITALITY, 10.0);
-        STAT_CAPS.put(EquipmentStat.AGILITY, 10.0);
-        STAT_CAPS.put(EquipmentStat.INTELLIGENCE, 15.0);
-        STAT_CAPS.put(EquipmentStat.LUCK, 10.0);
-        STAT_CAPS.put(EquipmentStat.ENDURANCE, 10.0);
-        STAT_CAPS.put(EquipmentStat.DEXTERITY, 15.0);
-        STAT_CAPS.put(EquipmentStat.CRITICAL_CHANCE, 10.0);
-        STAT_CAPS.put(EquipmentStat.CRITICAL_DAMAGE, 25.0);
-        STAT_CAPS.put(EquipmentStat.HEALTH, 4.0);
-        STAT_CAPS.put(EquipmentStat.MOVEMENT_SPEED, 5.0);
-    }
-
-    public EquipmentManager(AttributesRPG plugin) {
+    public SkillExecutionManager(AttributesRPG plugin) {
         this.plugin = plugin;
     }
 
-    public boolean equip(Player player, EquipmentData equipment) {
-        if (player == null
-                || plugin == null
-                || plugin.getDatabaseManager() == null
-                || !isValidEquipment(equipment)) {
+    public boolean activate(Player player, int slot) {
+        if (slot < 1 || slot > SkillManager.MAX_EQUIPPED_SKILLS) {
+            player.sendMessage("§cGunakan slot skill 1 sampai 3.");
             return false;
         }
 
-        UUID uuid = player.getUniqueId();
+        List<RpgSkill> skills = plugin.getSkillManager()
+                .getEquippedSkills(player);
 
-        Map<EquipmentType, EquipmentData> items =
-                equipped.get(uuid);
-
-        if (items != null && items.containsKey(equipment.getType())) {
+        if (skills.size() < slot) {
+            player.sendMessage("§cBelum ada skill di slot tersebut.");
             return false;
         }
 
-        try {
-            plugin.getDatabaseManager().saveEquipment(uuid, equipment);
+        RpgSkill skill = skills.get(slot - 1);
+        SkillManager manager = plugin.getSkillManager();
 
-            if (items == null) {
-                items = new EnumMap<>(EquipmentType.class);
-                equipped.put(uuid, items);
-            }
-
-            items.put(equipment.getType(), equipment);
-            return true;
-
-        } catch (SQLException exception) {
-            plugin.getLogger().severe(
-                    "Gagal menyimpan equipment: "
-                            + exception.getMessage()
-            );
-            return false;
-        }
-    }
-
-    private boolean isValidEquipment(EquipmentData equipment) {
-        if (equipment == null
-                || equipment.getType() == null
-                || equipment.getRarity() == null
-                || equipment.getId() == null
-                || !equipment.getId().matches("[a-zA-Z0-9_-]{2,32}")
-                || equipment.getDisplayName() == null
-                || equipment.getDisplayName().isBlank()
-                || equipment.getStats() == null
-                || equipment.getStats().isEmpty()) {
+        if (!manager.isUnlocked(player, skill)) {
+            player.sendMessage("§cSkill belum terbuka.");
             return false;
         }
 
-        for (Map.Entry<EquipmentStat, Double> entry :
-                equipment.getStats().entrySet()) {
-
-            EquipmentStat stat = entry.getKey();
-            Double value = entry.getValue();
-
-            if (stat == null || value == null
-                    || !Double.isFinite(value) || value <= 0) {
-                return false;
-            }
-
-            double cap = STAT_CAPS.getOrDefault(stat, 0.0);
-            double scaled = value
-                    * equipment.getRarity().getBonusMultiplier();
-
-            if (cap <= 0 || !Double.isFinite(scaled)
-                    || scaled > cap) {
-                return false;
-            }
+        if (manager.isOnCooldown(player, skill)) {
+            player.sendMessage("§cSkill cooldown: "
+                    + manager.getRemainingCooldown(player, skill)
+                    + " detik.");
+            return false;
         }
 
+        int level = manager.getSkillLevel(player, skill);
+
+        if (!execute(player, skill, level)) {
+            return false;
+        }
+
+        manager.startCooldown(player, skill);
+        player.sendMessage("§aSkill digunakan: §e"
+                + skill.getDisplayName());
         return true;
     }
 
-    public boolean unequip(Player player, EquipmentType type) {
-        if (player == null
-                || type == null
-                || plugin == null
-                || plugin.getDatabaseManager() == null) {
-            return false;
-        }
-
-        UUID uuid = player.getUniqueId();
-
-        Map<EquipmentType, EquipmentData> items = equipped.get(uuid);
-
-        if (items == null || !items.containsKey(type)) {
-            return false;
-        }
-
-        try {
-            plugin.getDatabaseManager().removeEquipment(uuid, type);
-
-            items.remove(type);
-
-            if (items.isEmpty()) {
-                equipped.remove(uuid);
-            }
-
-            return true;
-
-        } catch (SQLException exception) {
-            plugin.getLogger().severe(
-                    "Gagal menghapus equipment: "
-                            + exception.getMessage()
-            );
-            return false;
-        }
+    private boolean execute(Player player, RpgSkill skill, int level) {
+        return switch (skill) {
+            case HEAVY_STRIKE -> heavyStrike(player, level);
+            case IRON_WALL -> ironWall(player, level);
+            case SECOND_WIND -> secondWind(player, level);
+            case DASH -> dash(player, level);
+            case ARCANE_BURST -> arcaneBurst(player, level);
+            case LUCKY_STRIKE -> luckyStrike(player, level);
+            case UNSTOPPABLE -> unstoppable(player, level);
+            case PRECISION_SHOT -> precisionShot(player, level);
+        };
     }
 
-    public void loadPlayer(Player player) {
-        if (player == null
-                || plugin == null
-                || plugin.getDatabaseManager() == null) {
+    private void dealSkillDamage(
+            Player target,
+            Player attacker,
+            double damage
+    ) {
+        if (target == null || target.isDead()
+                || !Double.isFinite(damage) || damage <= 0) {
             return;
         }
 
-        UUID uuid = player.getUniqueId();
+        target.setMetadata(
+                SKILL_DAMAGE_KEY,
+                new FixedMetadataValue(plugin, true)
+        );
 
         try {
-            Map<EquipmentType, EquipmentData> loaded =
-                    new EnumMap<>(EquipmentType.class);
-
-            for (EquipmentData data :
-                    plugin.getDatabaseManager().loadEquipment(uuid)) {
-
-                if (!isValidEquipment(data)) {
-                    plugin.getLogger().warning(
-                            "Equipment tidak valid dilewati untuk "
-                                    + player.getName()
-                    );
-                    continue;
-                }
-
-                if (loaded.containsKey(data.getType())) {
-                    plugin.getLogger().warning(
-                            "Equipment duplikat dilewati untuk "
-                                    + player.getName()
-                                    + ": " + data.getType()
-                    );
-                    continue;
-                }
-
-                loaded.put(data.getType(), data);
-            }
-
-            if (loaded.isEmpty()) {
-                equipped.remove(uuid);
-            } else {
-                equipped.put(uuid, loaded);
-            }
-
-        } catch (SQLException exception) {
-            plugin.getLogger().severe(
-                    "Gagal memuat equipment " + player.getName()
-                            + ": " + exception.getMessage()
-            );
+            target.damage(damage, attacker);
+        } finally {
+            target.removeMetadata(SKILL_DAMAGE_KEY, plugin);
         }
     }
 
-    public EquipmentData getEquipped(
-            Player player, EquipmentType type
-    ) {
-        if (player == null || type == null) {
-            return null;
+    private boolean heavyStrike(Player player, int level) {
+        Player target = findTarget(player, 4.0, 0.65);
+
+        if (target == null) {
+            player.sendMessage("§cTidak ada target di depanmu.");
+            return false;
         }
 
-        Map<EquipmentType, EquipmentData> items =
-                equipped.get(player.getUniqueId());
+        dealSkillDamage(target, player, 4.0 + level * 2.0);
 
-        return items == null ? null : items.get(type);
+        target.setVelocity(target.getVelocity().add(
+                player.getLocation().getDirection()
+                        .multiply(0.45).setY(0.18)));
+
+        target.getWorld().spawnParticle(
+                Particle.CRIT, target.getLocation().add(0, 1, 0),
+                18, 0.4, 0.5, 0.4, 0.15);
+
+        player.playSound(player.getLocation(),
+                Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1f, 0.8f);
+        return true;
     }
 
-    public double getTotalStat(Player player, EquipmentStat stat) {
-        if (player == null || stat == null) {
-            return 0.0;
-        }
+    private boolean ironWall(Player player, int level) {
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.RESISTANCE,
+                60 + level * 40, 0, false, true, true));
 
-        Map<EquipmentType, EquipmentData> items =
-                equipped.get(player.getUniqueId());
+        player.getWorld().spawnParticle(
+                Particle.CLOUD, player.getLocation().add(0, 1, 0),
+                25, 0.8, 0.7, 0.8, 0.04);
 
-        if (items == null) {
-            return 0.0;
-        }
+        player.playSound(player.getLocation(),
+                Sound.ITEM_SHIELD_BLOCK, 1f, 0.8f);
+        return true;
+    }
 
-        double total = 0.0;
-
-        for (EquipmentData item : items.values()) {
-            if (item == null) {
-                continue;
-            }
-
-            double value = item.getScaledStat(stat);
-
-            if (Double.isFinite(value) && value > 0) {
-                total += value;
-            }
-        }
-
-        if (!Double.isFinite(total)) {
-            return STAT_CAPS.getOrDefault(stat, 0.0);
-        }
-
-        return Math.min(
-                total,
-                STAT_CAPS.getOrDefault(stat, 0.0)
+    private boolean secondWind(Player player, int level) {
+        double heal = Math.min(
+                2.0 + level * 2.0,
+                player.getMaxHealth() - player.getHealth()
         );
+
+        if (heal <= 0) {
+            player.sendMessage("§cHealth-mu masih penuh.");
+            return false;
+        }
+
+        player.setHealth(player.getHealth() + heal);
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.REGENERATION,
+                40 + level * 20, 0, false, true, true));
+
+        player.getWorld().spawnParticle(
+                Particle.HEART, player.getLocation().add(0, 1, 0),
+                8, 0.5, 0.5, 0.5, 0);
+
+        player.playSound(player.getLocation(),
+                Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.4f);
+        return true;
     }
 
-    public Map<EquipmentType, EquipmentData> getEquippedItems(
-            Player player
+    private boolean dash(Player player, int level) {
+        Vector direction = player.getLocation()
+                .getDirection().setY(0).normalize();
+
+        player.setVelocity(
+                direction.multiply(1.0 + level * 0.25).setY(0.25));
+
+        player.getWorld().spawnParticle(
+                Particle.CLOUD, player.getLocation(),
+                20, 0.3, 0.3, 0.3, 0.08);
+
+        player.playSound(player.getLocation(),
+                Sound.ENTITY_ENDER_DRAGON_FLAP, 0.7f, 1.5f);
+        return true;
+    }
+
+    private boolean arcaneBurst(Player player, int level) {
+        List<Player> targets = getNearbyPlayers(player, 5.0);
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§cTidak ada pemain di sekitar.");
+            return false;
+        }
+
+        for (Player target : targets) {
+            dealSkillDamage(target, player, 3.0 + level * 2.0);
+        }
+
+        player.getWorld().spawnParticle(
+                Particle.ENCHANTED_HIT,
+                player.getLocation().add(0, 1, 0),
+                45, 2.0, 1.0, 2.0, 0.2);
+
+        player.playSound(player.getLocation(),
+                Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1f, 0.8f);
+        return true;
+    }
+
+    private boolean luckyStrike(Player player, int level) {
+        Player target = findTarget(player, 4.0, 0.65);
+
+        if (target == null) {
+            player.sendMessage("§cTidak ada target di depanmu.");
+            return false;
+        }
+
+        double maximum = 4.0 + level * 2.0;
+        double bonus = ThreadLocalRandom.current()
+                .nextDouble(2.0, Math.max(2.01, maximum));
+
+        dealSkillDamage(target, player, bonus);
+
+        target.getWorld().spawnParticle(
+                Particle.CRIT, target.getLocation().add(0, 1, 0),
+                25, 0.4, 0.5, 0.4, 0.2);
+
+        player.playSound(player.getLocation(),
+                Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
+        return true;
+    }
+
+    private boolean unstoppable(Player player, int level) {
+        int duration = 60 + level * 40;
+
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.RESISTANCE,
+                duration, 0, false, true, true));
+
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.SPEED,
+                duration, 0, false, true, true));
+
+        player.getWorld().spawnParticle(
+                Particle.SOUL, player.getLocation().add(0, 1, 0),
+                30, 0.7, 0.8, 0.7, 0.05);
+
+        player.playSound(player.getLocation(),
+                Sound.ITEM_TOTEM_USE, 0.8f, 1.2f);
+        return true;
+    }
+
+    private boolean precisionShot(Player player, int level) {
+        Player target = findTarget(player, 12.0, 0.85);
+
+        if (target == null) {
+            player.sendMessage("§cTidak ada target dalam bidikan.");
+            return false;
+        }
+
+        if (!player.hasLineOfSight(target)) {
+            player.sendMessage("§cTarget terhalang.");
+            return false;
+        }
+
+        dealSkillDamage(target, player, 3.0 + level * 2.0);
+
+        target.getWorld().spawnParticle(
+                Particle.CRIT, target.getLocation().add(0, 1, 0),
+                15, 0.3, 0.4, 0.3, 0.1);
+
+        player.playSound(player.getLocation(),
+                Sound.ENTITY_ARROW_HIT_PLAYER, 1f, 1.2f);
+        return true;
+    }
+
+    private Player findTarget(
+            Player player,
+            double range,
+            double minimumDot
     ) {
-        if (player == null) {
-            return Map.of();
-        }
+        Vector direction = player.getLocation()
+                .getDirection().normalize();
 
-        Map<EquipmentType, EquipmentData> items =
-                equipped.get(player.getUniqueId());
+        return getNearbyPlayers(player, range).stream()
+                .filter(target -> {
+                    Vector toTarget = target.getEyeLocation()
+                            .toVector()
+                            .subtract(player.getEyeLocation().toVector());
 
-        return items == null ? Map.of() : Map.copyOf(items);
+                    if (toTarget.lengthSquared() == 0) {
+                        return false;
+                    }
+
+                    return direction.dot(toTarget.normalize())
+                            >= minimumDot;
+                })
+                .min(Comparator.comparingDouble(
+                        target -> target.getLocation()
+                                .distanceSquared(player.getLocation())))
+                .orElse(null);
     }
 
-    public void clearPlayer(Player player) {
-        if (player != null) {
-            equipped.remove(player.getUniqueId());
-        }
-    }
-
-    public void clearAll() {
-        equipped.clear();
-    }
-
-    public static double getStatCap(EquipmentStat stat) {
-        return STAT_CAPS.getOrDefault(stat, 0.0);
+    private List<Player> getNearbyPlayers(Player player, double range) {
+        return player.getNearbyEntities(range, range, range).stream()
+                .filter(entity -> entity instanceof Player)
+                .map(entity -> (Player) entity)
+                .filter(target -> !target.equals(player))
+                .filter(target -> !target.isDead())
+                .toList();
     }
 }
