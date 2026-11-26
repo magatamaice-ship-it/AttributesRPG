@@ -3,17 +3,18 @@ package id.attributesrpg;
 
 import org.bukkit.entity.Player;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 public class SkillManager {
 
-    private static final int MAX_EQUIPPED_SKILLS = 3;
+    public static final int MAX_EQUIPPED_SKILLS = 3;
     private static final long COMBAT_DURATION = 15_000L;
 
     private final AttributesRPG plugin;
@@ -34,66 +35,73 @@ public class SkillManager {
     public boolean isUnlocked(Player player, RpgSkill skill) {
         PlayerData data = getData(player);
 
-        if (data == null || skill == null) {
-            return false;
-        }
-
-        return data.getAttribute(skill.getAttribute())
-                >= skill.getUnlockLevel();
+        return data != null
+                && data.getAttribute(skill.getAttribute()) >= 10;
     }
 
     public int getSkillLevel(Player player, RpgSkill skill) {
         PlayerData data = getData(player);
 
-        if (data == null || skill == null
-                || !isUnlocked(player, skill)) {
+        if (data == null) {
             return 0;
         }
 
-        int attributeLevel = data.getAttribute(
-                skill.getAttribute()
-        );
+        int attributeLevel = data.getAttribute(skill.getAttribute());
 
-        if (attributeLevel >= skill.getSecondUpgradeLevel()) {
+        if (attributeLevel >= 40) {
             return 3;
         }
 
-        if (attributeLevel >= skill.getFirstUpgradeLevel()) {
+        if (attributeLevel >= 25) {
             return 2;
         }
 
-        return 1;
+        if (attributeLevel >= 10) {
+            return 1;
+        }
+
+        return 0;
     }
 
     public boolean equipSkill(Player player, RpgSkill skill) {
-        if (skill == null || !isUnlocked(player, skill)) {
+        if (isInCombat(player) || !isUnlocked(player, skill)) {
             return false;
         }
 
-        if (isInCombat(player)) {
+        List<RpgSkill> skills = getEquippedSkills(player);
+
+        if (skills.contains(skill)
+                || skills.size() >= MAX_EQUIPPED_SKILLS) {
             return false;
         }
 
-        List<RpgSkill> equipped = getEquippedSkills(player);
+        skills.add(skill);
 
-        if (equipped.contains(skill)) {
+        if (!saveLoadout(player.getUniqueId(), skills)) {
+            skills.remove(skill);
             return false;
         }
 
-        if (equipped.size() >= MAX_EQUIPPED_SKILLS) {
-            return false;
-        }
-
-        equipped.add(skill);
         return true;
     }
 
     public boolean unequipSkill(Player player, RpgSkill skill) {
-        if (skill == null || isInCombat(player)) {
+        if (isInCombat(player)) {
             return false;
         }
 
-        return getEquippedSkills(player).remove(skill);
+        List<RpgSkill> skills = getEquippedSkills(player);
+
+        if (!skills.remove(skill)) {
+            return false;
+        }
+
+        if (!saveLoadout(player.getUniqueId(), skills)) {
+            skills.add(skill);
+            return false;
+        }
+
+        return true;
     }
 
     public List<RpgSkill> getEquippedSkills(Player player) {
@@ -106,64 +114,26 @@ public class SkillManager {
     public boolean isEquipped(Player player, RpgSkill skill) {
         return getEquippedSkills(player).contains(skill);
     }
-  
+
     public boolean isOnCooldown(Player player, RpgSkill skill) {
-        Map<RpgSkill, Long> playerCooldowns =
-                cooldowns.get(player.getUniqueId());
-
-        if (playerCooldowns == null) {
-            return false;
-        }
-
-        Long expiry = playerCooldowns.get(skill);
-
-        if (expiry == null) {
-            return false;
-        }
-
-        if (System.currentTimeMillis() >= expiry) {
-            playerCooldowns.remove(skill);
-            return false;
-        }
-
-        return true;
+        return getCooldowns(player).getOrDefault(skill, 0L)
+                > System.currentTimeMillis();
     }
 
-    public long getRemainingCooldown(
-            Player player,
-            RpgSkill skill
-    ) {
-        Map<RpgSkill, Long> playerCooldowns =
-                cooldowns.get(player.getUniqueId());
+    public long getRemainingCooldown(Player player, RpgSkill skill) {
+        long remaining = getCooldowns(player).getOrDefault(skill, 0L)
+                - System.currentTimeMillis();
 
-        if (playerCooldowns == null) {
-            return 0;
-        }
-
-        Long expiry = playerCooldowns.get(skill);
-
-        if (expiry == null) {
-            return 0;
-        }
-
-        return Math.max(
-                0,
-                (expiry - System.currentTimeMillis() + 999) / 1000
-        );
+        return Math.max(0, (remaining + 999) / 1000);
     }
 
     public void startCooldown(Player player, RpgSkill skill) {
-        int cooldown = skill.getCooldownSeconds();
-
-        cooldowns.computeIfAbsent(
-                player.getUniqueId(),
-                uuid -> new HashMap<>()
-        ).put(
+        getCooldowns(player).put(
                 skill,
-                System.currentTimeMillis() + cooldown * 1000L
+                System.currentTimeMillis()
+                        + (skill.getCooldownSeconds() * 1000L)
         );
     }
-
     public void recordCombat(Player player) {
         lastCombat.put(
                 player.getUniqueId(),
@@ -172,18 +142,111 @@ public class SkillManager {
     }
 
     public boolean isInCombat(Player player) {
-        Long lastHit = lastCombat.get(player.getUniqueId());
+        Long last = lastCombat.get(player.getUniqueId());
 
-        if (lastHit == null) {
+        return last != null
+                && System.currentTimeMillis() - last < COMBAT_DURATION;
+    }
+
+    public void loadPlayer(Player player) {
+        UUID uuid = player.getUniqueId();
+        List<RpgSkill> skills = new ArrayList<>();
+
+        String sql = """
+            SELECT slot, skill_name
+            FROM player_skills
+            WHERE uuid = ?
+            ORDER BY slot ASC;
+        """;
+
+        try (PreparedStatement statement = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
+
+            statement.setString(1, uuid.toString());
+
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    RpgSkill skill = RpgSkill.fromName(
+                            result.getString("skill_name")
+                    );
+
+                    if (skill != null
+                            && skills.size() < MAX_EQUIPPED_SKILLS
+                            && !skills.contains(skill)) {
+                        skills.add(skill);
+                    }
+                }
+            }
+
+            equippedSkills.put(uuid, skills);
+
+        } catch (SQLException exception) {
+            plugin.getLogger().severe(
+                    "Gagal memuat skill " + player.getName()
+                            + ": " + exception.getMessage()
+            );
+        }
+    }
+
+    private boolean saveLoadout(UUID uuid, List<RpgSkill> skills) {
+        String deleteSql = "DELETE FROM player_skills WHERE uuid = ?";
+
+        String insertSql = """
+            INSERT INTO player_skills (uuid, slot, skill_name)
+            VALUES (?, ?, ?);
+        """;
+
+        var connection = plugin.getDatabaseManager().getConnection();
+
+        try {
+            connection.setAutoCommit(false);
+
+            try (PreparedStatement delete =
+                         connection.prepareStatement(deleteSql);
+                 PreparedStatement insert =
+                         connection.prepareStatement(insertSql)) {
+
+                delete.setString(1, uuid.toString());
+                delete.executeUpdate();
+
+                for (int i = 0; i < skills.size(); i++) {
+                    insert.setString(1, uuid.toString());
+                    insert.setInt(2, i + 1);
+                    insert.setString(3, skills.get(i).name());
+                    insert.addBatch();
+                }
+
+                insert.executeBatch();
+                connection.commit();
+                return true;
+
+            } catch (SQLException exception) {
+                connection.rollback();
+                throw exception;
+
+            } finally {
+                connection.setAutoCommit(true);
+            }
+
+        } catch (SQLException exception) {
+            plugin.getLogger().severe(
+                    "Gagal menyimpan loadout skill: "
+                            + exception.getMessage()
+            );
             return false;
         }
+    }
 
-        if (System.currentTimeMillis() - lastHit >= COMBAT_DURATION) {
-            lastCombat.remove(player.getUniqueId());
-            return false;
-        }
+    private Map<RpgSkill, Long> getCooldowns(Player player) {
+        return cooldowns.computeIfAbsent(
+                player.getUniqueId(),
+                uuid -> new HashMap<>()
+        );
+    }
 
-        return true;
+    private PlayerData getData(Player player) {
+        return plugin.getPlayerDataManager()
+                .getPlayer(player.getUniqueId());
     }
 
     public void clearPlayer(Player player) {
@@ -193,10 +256,4 @@ public class SkillManager {
         cooldowns.remove(uuid);
         lastCombat.remove(uuid);
     }
-
-    private PlayerData getData(Player player) {
-        return plugin.getPlayerDataManager().getPlayer(
-                player.getUniqueId()
-        );
-    }
-}
+        }
