@@ -15,6 +15,7 @@ public final class AttributesRPG extends JavaPlugin {
     private AttributeManager attributeManager;
     private AttributeStatListener attributeStatListener;
     private ResetItemManager resetItemManager;
+    private CriticalHitManager criticalHitManager;
 
     @Override
     public void onEnable() {
@@ -30,25 +31,32 @@ public final class AttributesRPG extends JavaPlugin {
             attributeManager = new AttributeManager(this);
             attributeStatListener = new AttributeStatListener(this);
             resetItemManager = new ResetItemManager(this);
+            criticalHitManager = new CriticalHitManager(this);
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
             );
+
             getServer().getPluginManager().registerEvents(
                     new MobExpListener(this), this
             );
+
             getServer().getPluginManager().registerEvents(
                     new AttributeEffectListener(this), this
             );
+
             getServer().getPluginManager().registerEvents(
                     attributeStatListener, this
             );
+
             getServer().getPluginManager().registerEvents(
                     new LuckEnduranceListener(this), this
             );
+
             getServer().getPluginManager().registerEvents(
                     new AttributeMenuListener(), this
             );
+
             getServer().getPluginManager().registerEvents(
                     new ResetItemListener(this), this
             );
@@ -56,15 +64,19 @@ public final class AttributesRPG extends JavaPlugin {
             getCommand("attributes").setExecutor(
                     new AttributesCommand(this)
             );
+
             getCommand("stats").setExecutor(
                     new StatsCommand(this)
             );
+
             getCommand("level").setExecutor(
                     new LevelCommand(this)
             );
+
             getCommand("setitem").setExecutor(
                     new SetItemCommand(this)
             );
+
             getCommand("mobexp").setExecutor(
                     new MobExpCommand(this)
             );
@@ -133,5 +145,9 @@ public final class AttributesRPG extends JavaPlugin {
 
     public ResetItemManager getResetItemManager() {
         return resetItemManager;
+    }
+
+    public CriticalHitManager getCriticalHitManager() {
+        return criticalHitManager;
     }
 }
