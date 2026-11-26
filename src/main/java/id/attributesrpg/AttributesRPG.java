@@ -157,6 +157,12 @@ public final class AttributesRPG extends JavaPlugin {
 
         getCommand("equipment").setExecutor(equipmentCommand);
         getCommand("equipment").setTabCompleter(equipmentCommand);
+
+        RpgItemCommand rpgItemCommand =
+                new RpgItemCommand(this);
+
+        getCommand("rpgitem").setExecutor(rpgItemCommand);
+        getCommand("rpgitem").setTabCompleter(rpgItemCommand);
     }
 
     @Override
