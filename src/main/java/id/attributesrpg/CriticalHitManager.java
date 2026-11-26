@@ -1,4 +1,3 @@
-
 package id.attributesrpg;
 
 import org.bukkit.Particle;
@@ -27,6 +26,9 @@ public class CriticalHitManager {
             return damage;
         }
 
+        EquipmentManager equipment = plugin.getEquipmentManager();
+
+        // Peluang critical dasar dan bonus Luck.
         double chance = plugin.getConfig().getDouble(
                 "combat.critical.base-chance", 0.05
         );
@@ -35,6 +37,12 @@ public class CriticalHitManager {
                 * plugin.getConfig().getDouble(
                 "combat.critical.luck-chance-per-level", 0.005
         );
+
+        // Bonus Critical Chance dari Equipment.
+        chance += equipment.getTotalStat(
+                attacker.getUniqueId(),
+                EquipmentStat.CRITICAL_CHANCE
+        ) / 100.0;
 
         double maxChance = plugin.getConfig().getDouble(
                 "combat.critical.max-chance", 0.30
@@ -46,6 +54,7 @@ public class CriticalHitManager {
             return damage;
         }
 
+        // Bonus critical damage dasar.
         double criticalBonus = plugin.getConfig().getDouble(
                 "combat.critical.base-damage-bonus", 0.50
         );
@@ -63,6 +72,12 @@ public class CriticalHitManager {
                     0.01
             );
         }
+
+        // Bonus Critical Damage dari Equipment.
+        criticalBonus += equipment.getTotalStat(
+                attacker.getUniqueId(),
+                EquipmentStat.CRITICAL_DAMAGE
+        ) / 100.0;
 
         double maxBonus = plugin.getConfig().getDouble(
                 "combat.critical.max-damage-bonus", 1.00
@@ -109,8 +124,6 @@ public class CriticalHitManager {
                 0.8f
         );
 
-        attacker.sendMessage(
-                "§6§lCRITICAL HIT!"
-        );
+        attacker.sendMessage("§6§lCRITICAL HIT!");
     }
 }
