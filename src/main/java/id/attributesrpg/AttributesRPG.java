@@ -18,6 +18,9 @@ public final class AttributesRPG extends JavaPlugin {
     private CriticalHitManager criticalHitManager;
     private KnockManager knockManager;
 
+    private SkillManager skillManager;
+    private SkillExecutionManager skillExecutionManager;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -34,6 +37,9 @@ public final class AttributesRPG extends JavaPlugin {
             resetItemManager = new ResetItemManager(this);
             criticalHitManager = new CriticalHitManager(this);
             knockManager = new KnockManager(this);
+
+            skillManager = new SkillManager(this);
+            skillExecutionManager = new SkillExecutionManager(this);
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
@@ -62,38 +68,12 @@ public final class AttributesRPG extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new KnockMenu(this), this
             );
-            getCommand("attributes").setExecutor(
-                    new AttributesCommand(this)
-            );
-            getCommand("stats").setExecutor(
-                    new StatsCommand(this)
-            );
-            getCommand("level").setExecutor(
-                    new LevelCommand(this)
-            );
-            getCommand("setitem").setExecutor(
-                    new SetItemCommand(this)
-            );
-            getCommand("mobexp").setExecutor(
-                    new MobExpCommand(this)
+
+            getServer().getPluginManager().registerEvents(
+                    new SkillCombatListener(this), this
             );
 
-            PlayerAdminCommand adminCommand =
-                    new PlayerAdminCommand(this);
-
-            getCommand("setlevel").setExecutor(adminCommand);
-            getCommand("addlevel").setExecutor(adminCommand);
-            getCommand("addexp").setExecutor(adminCommand);
-            getCommand("setexp").setExecutor(adminCommand);
-            getCommand("givepoints").setExecutor(adminCommand);
-
-            getCommand("setattribute").setExecutor(
-                    new SetAttributeCommand(this)
-            );
-
-            getCommand("resetattribute").setExecutor(
-                    new ResetAttributeCommand(this)
-            );
+            registerCommands();
 
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
@@ -105,6 +85,46 @@ public final class AttributesRPG extends JavaPlugin {
         getLogger().info("AttributesRPG berhasil diaktifkan!");
     }
 
+    private void registerCommands() {
+        getCommand("attributes").setExecutor(
+                new AttributesCommand(this)
+        );
+        getCommand("stats").setExecutor(
+                new StatsCommand(this)
+        );
+        getCommand("level").setExecutor(
+                new LevelCommand(this)
+        );
+        getCommand("setitem").setExecutor(
+                new SetItemCommand(this)
+        );
+        getCommand("mobexp").setExecutor(
+                new MobExpCommand(this)
+        );
+
+        PlayerAdminCommand adminCommand =
+                new PlayerAdminCommand(this);
+
+        getCommand("setlevel").setExecutor(adminCommand);
+        getCommand("addlevel").setExecutor(adminCommand);
+        getCommand("addexp").setExecutor(adminCommand);
+        getCommand("setexp").setExecutor(adminCommand);
+        getCommand("givepoints").setExecutor(adminCommand);
+
+        getCommand("setattribute").setExecutor(
+                new SetAttributeCommand(this)
+        );
+        getCommand("resetattribute").setExecutor(
+                new ResetAttributeCommand(this)
+        );
+
+        SkillCommand skillCommand = new SkillCommand(
+                skillManager, skillExecutionManager
+        );
+
+        getCommand("skill").setExecutor(skillCommand);
+        getCommand("skill").setTabCompleter(skillCommand);
+    }
     @Override
     public void onDisable() {
         if (knockManager != null) {
@@ -154,5 +174,13 @@ public final class AttributesRPG extends JavaPlugin {
 
     public KnockManager getKnockManager() {
         return knockManager;
+    }
+
+    public SkillManager getSkillManager() {
+        return skillManager;
+    }
+
+    public SkillExecutionManager getSkillExecutionManager() {
+        return skillExecutionManager;
     }
 }
