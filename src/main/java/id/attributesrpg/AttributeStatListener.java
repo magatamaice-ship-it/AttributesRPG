@@ -1,3 +1,4 @@
+
 package id.attributesrpg;
 
 import org.bukkit.NamespacedKey;
@@ -18,24 +19,49 @@ public class AttributeStatListener implements Listener {
 
     public AttributeStatListener(AttributesRPG plugin) {
         this.plugin = plugin;
-        this.vitalityKey = new NamespacedKey(plugin, "rpg_vitality");
-        this.agilityKey = new NamespacedKey(plugin, "rpg_agility");
+
+        this.vitalityKey = new NamespacedKey(
+                plugin, "rpg_vitality"
+        );
+
+        this.agilityKey = new NamespacedKey(
+                plugin, "rpg_agility"
+        );
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        applyStats(event.getPlayer());
+        Player player = event.getPlayer();
+
+        plugin.getServer().getScheduler().runTask(
+                plugin,
+                () -> {
+                    if (player.isOnline()) {
+                        applyStats(player);
+                    }
+                }
+        );
     }
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+
         plugin.getServer().getScheduler().runTask(
                 plugin,
-                () -> applyStats(event.getPlayer())
+                () -> {
+                    if (player.isOnline()) {
+                        applyStats(player);
+                    }
+                }
         );
     }
 
     public void applyStats(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
         PlayerData data = plugin.getPlayerDataManager()
                 .getPlayer(player.getUniqueId());
 
@@ -44,6 +70,13 @@ public class AttributeStatListener implements Listener {
         }
 
         EquipmentManager equipment = plugin.getEquipmentManager();
+
+        if (equipment == null) {
+            return;
+        }
+
+        double playerVitality =
+                data.getAttribute("vitality");
 
         double equipmentVitality = equipment.getTotalStat(
                 player,
@@ -56,13 +89,17 @@ public class AttributeStatListener implements Listener {
         );
 
         double healthPerLevel = plugin.getConfig().getDouble(
-                "attributes.vitality.health-per-level", 0.2
+                "attributes.vitality.health-per-level",
+                0.2
         );
 
         double healthBonus =
-                (data.getAttribute("vitality") + equipmentVitality)
+                (playerVitality + equipmentVitality)
                         * healthPerLevel
                         + equipmentHealth;
+
+        double playerAgility =
+                data.getAttribute("agility");
 
         double equipmentAgility = equipment.getTotalStat(
                 player,
@@ -75,13 +112,24 @@ public class AttributeStatListener implements Listener {
         );
 
         double speedPerLevel = plugin.getConfig().getDouble(
-                "attributes.agility.speed-per-level", 0.002
+                "attributes.agility.speed-per-level",
+                0.002
         );
 
         double speedBonus =
-                (data.getAttribute("agility") + equipmentAgility)
+                (playerAgility + equipmentAgility)
                         * speedPerLevel
                         + equipmentSpeed / 100.0;
+
+        if (!Double.isFinite(healthBonus)
+                || healthBonus < 0) {
+            healthBonus = 0;
+        }
+
+        if (!Double.isFinite(speedBonus)
+                || speedBonus < 0) {
+            speedBonus = 0;
+        }
 
         applyModifier(
                 player,
@@ -115,7 +163,8 @@ public class AttributeStatListener implements Listener {
             double amount,
             AttributeModifier.Operation operation
     ) {
-        AttributeInstance instance = player.getAttribute(attribute);
+        AttributeInstance instance =
+                player.getAttribute(attribute);
 
         if (instance == null) {
             return;
@@ -123,14 +172,16 @@ public class AttributeStatListener implements Listener {
 
         instance.removeModifier(key);
 
-        if (amount <= 0) {
+        if (!Double.isFinite(amount) || amount <= 0) {
             return;
         }
 
-        instance.addModifier(new AttributeModifier(
-                key,
-                amount,
-                operation
-        ));
+        instance.addModifier(
+                new AttributeModifier(
+                        key,
+                        amount,
+                        operation
+                )
+        );
     }
 }
