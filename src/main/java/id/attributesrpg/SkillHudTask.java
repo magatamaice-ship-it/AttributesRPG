@@ -2,6 +2,7 @@
 package id.attributesrpg;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
@@ -9,6 +10,9 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.List;
 
 public class SkillHudTask {
+
+    private static final LegacyComponentSerializer LEGACY =
+            LegacyComponentSerializer.legacySection();
 
     private final AttributesRPG plugin;
     private BukkitTask task;
@@ -64,11 +68,10 @@ public class SkillHudTask {
             hud.append("§e] ");
         }
 
-        player.sendActionBar(Component.text(
-                hud.toString().replaceAll("§[0-9a-fk-or]", "")
-        ));
+        Component component = LEGACY.deserialize(hud.toString());
+        player.sendActionBar(component);
     }
- 
+
     public void stop() {
         if (task != null) {
             task.cancel();
