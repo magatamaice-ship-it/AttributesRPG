@@ -23,6 +23,11 @@ public final class AttributesRPG extends JavaPlugin {
     private SkillMenu skillMenu;
     private SkillHudTask skillHudTask;
 
+    private EquipmentManager equipmentManager;
+    private EquipmentItemFactory equipmentItemFactory;
+    private EquipmentItemParser equipmentItemParser;
+    private EquipmentMenu equipmentMenu;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -44,6 +49,15 @@ public final class AttributesRPG extends JavaPlugin {
             skillExecutionManager = new SkillExecutionManager(this);
             skillMenu = new SkillMenu(this);
             skillHudTask = new SkillHudTask(this);
+
+            equipmentManager = new EquipmentManager(this);
+            equipmentItemFactory = new EquipmentItemFactory(this);
+            equipmentItemParser = new EquipmentItemParser(this);
+            equipmentMenu = new EquipmentMenu(
+                    equipmentManager,
+                    equipmentItemFactory,
+                    equipmentItemParser
+            );
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
@@ -77,6 +91,9 @@ public final class AttributesRPG extends JavaPlugin {
             );
             getServer().getPluginManager().registerEvents(
                     skillMenu, this
+            );
+            getServer().getPluginManager().registerEvents(
+                    equipmentMenu, this
             );
 
             registerCommands();
@@ -134,6 +151,12 @@ public final class AttributesRPG extends JavaPlugin {
 
         getCommand("skill").setExecutor(skillCommand);
         getCommand("skill").setTabCompleter(skillCommand);
+
+        EquipmentCommand equipmentCommand =
+                new EquipmentCommand(equipmentMenu);
+
+        getCommand("equipment").setExecutor(equipmentCommand);
+        getCommand("equipment").setTabCompleter(equipmentCommand);
     }
 
     @Override
@@ -144,6 +167,10 @@ public final class AttributesRPG extends JavaPlugin {
 
         if (knockManager != null) {
             knockManager.shutdown();
+        }
+
+        if (equipmentManager != null) {
+            equipmentManager.clearAll();
         }
 
         if (playerDataManager != null) {
@@ -197,5 +224,21 @@ public final class AttributesRPG extends JavaPlugin {
 
     public SkillExecutionManager getSkillExecutionManager() {
         return skillExecutionManager;
+    }
+
+    public EquipmentManager getEquipmentManager() {
+        return equipmentManager;
+    }
+
+    public EquipmentItemFactory getEquipmentItemFactory() {
+        return equipmentItemFactory;
+    }
+
+    public EquipmentItemParser getEquipmentItemParser() {
+        return equipmentItemParser;
+    }
+
+    public EquipmentMenu getEquipmentMenu() {
+        return equipmentMenu;
     }
 }
