@@ -10,17 +10,17 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
-import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.vehicle.VehicleEnterEvent;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
 
 public class KnockListener implements Listener {
 
@@ -42,10 +42,8 @@ public class KnockListener implements Listener {
             return;
         }
 
-        EntityDamageEvent.DamageCause cause = event.getCause();
-
         boolean fallDamage =
-                cause == EntityDamageEvent.DamageCause.FALL;
+                event.getCause() == EntityDamageEvent.DamageCause.FALL;
 
         boolean playerCombat = event instanceof EntityDamageByEntityEvent damage
                 && (damage.getDamager() instanceof Player
@@ -106,6 +104,10 @@ public class KnockListener implements Listener {
 
         Player helper = event.getPlayer();
 
+        if (plugin.getKnockManager().isKnocked(helper)) {
+            return;
+        }
+
         if (plugin.getKnockManager().startRevive(helper, target)) {
             helper.sendMessage(
                     "§eProses membantu dimulai. Jangan bergerak selama 8 detik."
@@ -116,6 +118,7 @@ public class KnockListener implements Listener {
             );
         }
     }
+
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
         if (plugin.getKnockManager().isKnocked(event.getPlayer())) {
@@ -136,7 +139,6 @@ public class KnockListener implements Listener {
             event.setCancelled(true);
         }
     }
-
     @EventHandler
     public void onHeldItem(PlayerItemHeldEvent event) {
         if (plugin.getKnockManager().isKnocked(event.getPlayer())) {
@@ -186,6 +188,17 @@ public class KnockListener implements Listener {
         KnockMenu.open(player);
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onHelperDamaged(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player helper)) {
+            return;
+        }
+
+        plugin.getKnockManager().cancelReviveForHelper(
+                helper.getUniqueId()
+        );
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         plugin.getKnockManager().handleQuit(event.getPlayer());
@@ -197,4 +210,4 @@ public class KnockListener implements Listener {
                 event.getEntity().getUniqueId()
         );
     }
-}
+    }
