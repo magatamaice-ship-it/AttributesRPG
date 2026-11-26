@@ -17,6 +17,7 @@ public class EquipmentTemplateManager {
 
     private final AttributesRPG plugin;
     private final File file;
+
     private final Map<String, EquipmentData> templates =
             new HashMap<>();
 
@@ -104,10 +105,6 @@ public class EquipmentTemplateManager {
                     }
                 }
 
-                if (stats.isEmpty()) {
-                    continue;
-                }
-
                 EquipmentData data = new EquipmentData(
                         id,
                         name,
@@ -115,6 +112,13 @@ public class EquipmentTemplateManager {
                         rarity,
                         stats
                 );
+
+                if (!isValid(data)) {
+                    plugin.getLogger().warning(
+                            "Template tidak valid dilewati: " + id
+                    );
+                    continue;
+                }
 
                 templates.put(id.toLowerCase(Locale.ROOT), data);
 
@@ -132,8 +136,7 @@ public class EquipmentTemplateManager {
     }
 
     public boolean saveTemplate(EquipmentData data) {
-        if (data == null || data.getType() == null
-                || data.getStats().isEmpty()) {
+        if (!isValid(data)) {
             return false;
         }
 
@@ -148,6 +151,45 @@ public class EquipmentTemplateManager {
         if (!saveFile()) {
             templates.remove(id);
             return false;
+        }
+
+        return true;
+    }
+
+    private boolean isValid(EquipmentData data) {
+        if (data == null
+                || data.getId() == null
+                || data.getId().isBlank()
+                || data.getDisplayName() == null
+                || data.getDisplayName().isBlank()
+                || data.getType() == null
+                || data.getRarity() == null
+                || data.getStats().isEmpty()) {
+            return false;
+        }
+
+        if (!data.getId().matches("[a-zA-Z0-9_-]+")) {
+            return false;
+        }
+
+        for (Map.Entry<EquipmentStat, Double> entry :
+                data.getStats().entrySet()) {
+
+            EquipmentStat stat = entry.getKey();
+            Double value = entry.getValue();
+
+            if (stat == null || value == null
+                    || !Double.isFinite(value) || value <= 0) {
+                return false;
+            }
+
+            double cap = EquipmentManager.getStatCap(stat);
+
+            if (cap <= 0
+                    || value * data.getRarity().getBonusMultiplier()
+                    > cap) {
+                return false;
+            }
         }
 
         return true;
@@ -239,4 +281,4 @@ public class EquipmentTemplateManager {
             return false;
         }
     }
-             }
+}
