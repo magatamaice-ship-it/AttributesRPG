@@ -27,6 +27,7 @@ public final class AttributesRPG extends JavaPlugin {
     private EquipmentItemFactory equipmentItemFactory;
     private EquipmentItemParser equipmentItemParser;
     private EquipmentMenu equipmentMenu;
+    private EquipmentTemplateManager equipmentTemplateManager;
 
     @Override
     public void onEnable() {
@@ -58,6 +59,9 @@ public final class AttributesRPG extends JavaPlugin {
                     equipmentItemFactory,
                     equipmentItemParser
             );
+
+            equipmentTemplateManager =
+                    new EquipmentTemplateManager(this);
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
@@ -246,5 +250,9 @@ public final class AttributesRPG extends JavaPlugin {
 
     public EquipmentMenu getEquipmentMenu() {
         return equipmentMenu;
+    }
+
+    public EquipmentTemplateManager getEquipmentTemplateManager() {
+        return equipmentTemplateManager;
     }
 }
