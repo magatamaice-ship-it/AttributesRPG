@@ -21,6 +21,7 @@ public final class AttributesRPG extends JavaPlugin {
     private SkillManager skillManager;
     private SkillExecutionManager skillExecutionManager;
     private SkillMenu skillMenu;
+    private SkillHudTask skillHudTask;
 
     @Override
     public void onEnable() {
@@ -42,6 +43,7 @@ public final class AttributesRPG extends JavaPlugin {
             skillManager = new SkillManager(this);
             skillExecutionManager = new SkillExecutionManager(this);
             skillMenu = new SkillMenu(this);
+            skillHudTask = new SkillHudTask(this);
 
             getServer().getPluginManager().registerEvents(
                     new PlayerDataListener(this), this
@@ -70,7 +72,6 @@ public final class AttributesRPG extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new KnockMenu(this), this
             );
-
             getServer().getPluginManager().registerEvents(
                     new SkillCombatListener(this), this
             );
@@ -79,6 +80,8 @@ public final class AttributesRPG extends JavaPlugin {
             );
 
             registerCommands();
+
+            skillHudTask.start();
 
         } catch (SQLException exception) {
             getLogger().severe("Gagal mengaktifkan database!");
@@ -89,6 +92,7 @@ public final class AttributesRPG extends JavaPlugin {
 
         getLogger().info("AttributesRPG berhasil diaktifkan!");
     }
+
     private void registerCommands() {
         getCommand("attributes").setExecutor(
                 new AttributesCommand(this)
@@ -134,6 +138,10 @@ public final class AttributesRPG extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (skillHudTask != null) {
+            skillHudTask.stop();
+        }
+
         if (knockManager != null) {
             knockManager.shutdown();
         }
