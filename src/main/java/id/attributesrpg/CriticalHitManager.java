@@ -1,3 +1,4 @@
+
 package id.attributesrpg;
 
 import org.bukkit.Particle;
@@ -21,6 +22,10 @@ public class CriticalHitManager {
             boolean ranged,
             double damage
     ) {
+        if (!Double.isFinite(damage) || damage <= 0) {
+            return damage;
+        }
+
         if (!plugin.getConfig().getBoolean(
                 "combat.critical.enabled", true)) {
             return damage;
@@ -28,25 +33,27 @@ public class CriticalHitManager {
 
         EquipmentManager equipment = plugin.getEquipmentManager();
 
-        // Peluang critical dasar dan bonus Luck.
-        double chance = plugin.getConfig().getDouble(
+        double baseChance = getConfigValue(
                 "combat.critical.base-chance", 0.05
         );
 
-        chance += data.getAttribute("luck")
-                * plugin.getConfig().getDouble(
+        double luckChance = getConfigValue(
                 "combat.critical.luck-chance-per-level", 0.005
         );
 
-        // Bonus Critical Chance dari Equipment.
-        chance += equipment.getTotalStat(
-                attacker.getUniqueId(),
+        double equipmentChance = equipment.getTotalStat(
+                attacker,
                 EquipmentStat.CRITICAL_CHANCE
         ) / 100.0;
 
-        double maxChance = plugin.getConfig().getDouble(
-                "combat.critical.max-chance", 0.30
-        );
+        double chance = baseChance
+                + data.getAttribute("luck") * luckChance
+                + equipmentChance;
+
+        double maxChance = Math.max(0, Math.min(
+                getConfigValue("combat.critical.max-chance", 0.30),
+                1.0
+        ));
 
         chance = Math.max(0, Math.min(chance, maxChance));
 
@@ -54,34 +61,32 @@ public class CriticalHitManager {
             return damage;
         }
 
-        // Bonus critical damage dasar.
-        double criticalBonus = plugin.getConfig().getDouble(
+        double criticalBonus = getConfigValue(
                 "combat.critical.base-damage-bonus", 0.50
         );
 
         if (ranged) {
             criticalBonus += data.getAttribute("dexterity")
-                    * plugin.getConfig().getDouble(
+                    * getConfigValue(
                     "combat.critical.dexterity-damage-per-level",
                     0.01
             );
         } else {
             criticalBonus += data.getAttribute("strength")
-                    * plugin.getConfig().getDouble(
+                    * getConfigValue(
                     "combat.critical.strength-damage-per-level",
                     0.01
             );
         }
 
-        // Bonus Critical Damage dari Equipment.
         criticalBonus += equipment.getTotalStat(
-                attacker.getUniqueId(),
+                attacker,
                 EquipmentStat.CRITICAL_DAMAGE
         ) / 100.0;
 
-        double maxBonus = plugin.getConfig().getDouble(
+        double maxBonus = Math.max(0, getConfigValue(
                 "combat.critical.max-damage-bonus", 1.00
-        );
+        ));
 
         criticalBonus = Math.max(
                 0,
@@ -91,6 +96,14 @@ public class CriticalHitManager {
         showCriticalEffect(attacker, victim);
 
         return damage * (1.0 + criticalBonus);
+    }
+
+    private double getConfigValue(String path, double defaultValue) {
+        double value = plugin.getConfig().getDouble(path, defaultValue);
+
+        return Double.isFinite(value) && value >= 0
+                ? value
+                : defaultValue;
     }
 
     private void showCriticalEffect(
