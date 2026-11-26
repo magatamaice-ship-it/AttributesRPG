@@ -1,6 +1,7 @@
 
 package id.attributesrpg;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -26,6 +27,11 @@ public class PlayerDataListener implements Listener {
                     player.getName()
             );
 
+            Bukkit.getScheduler().runTask(
+                    plugin,
+                    () -> plugin.getKnockManager().restoreKnock(player)
+            );
+
         } catch (SQLException exception) {
             plugin.getLogger().severe(
                     "Gagal memuat data " + player.getName()
@@ -37,6 +43,8 @@ public class PlayerDataListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         var player = event.getPlayer();
+
+        plugin.getKnockManager().handleQuit(player);
 
         try {
             plugin.getPlayerDataManager().unloadPlayer(
