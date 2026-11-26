@@ -32,9 +32,14 @@ public class DatabaseManager {
         String databaseName = plugin.getConfig()
                 .getString("database.file", "players.db");
 
+        if (databaseName == null || databaseName.isBlank()
+                || databaseName.contains("/")
+                || databaseName.contains("\\")) {
+            throw new SQLException("Nama database tidak valid.");
+        }
+
         File databaseFile = new File(
-                plugin.getDataFolder(),
-                databaseName
+                plugin.getDataFolder(), databaseName
         );
 
         connection = DriverManager.getConnection(
@@ -134,10 +139,6 @@ public class DatabaseManager {
                                 + column + " " + definition + ";"
                 );
             }
-
-            plugin.getLogger().info(
-                    "Kolom database ditambahkan: " + column
-            );
         }
     }
 
@@ -152,7 +153,6 @@ public class DatabaseManager {
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-
             statement.setString(1, uuid.toString());
             statement.setString(2, playerName);
             statement.executeUpdate();
@@ -173,7 +173,6 @@ public class DatabaseManager {
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-
             statement.setString(1, playerName);
             statement.setString(2, uuid.toString());
             statement.executeUpdate();
@@ -196,7 +195,6 @@ public class DatabaseManager {
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-
             statement.setString(1, uuid.toString());
             statement.setInt(2, slot);
             statement.setString(3, skillName);
@@ -214,7 +212,6 @@ public class DatabaseManager {
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-
             statement.setString(1, uuid.toString());
             statement.setInt(2, slot);
             statement.executeUpdate();
@@ -239,7 +236,12 @@ public class DatabaseManager {
     ) throws SQLException {
 
         if (uuid == null || equipment == null
-                || equipment.getType() == null) {
+                || equipment.getType() == null
+                || equipment.getRarity() == null
+                || equipment.getId() == null
+                || equipment.getDisplayName() == null
+                || equipment.getStats() == null
+                || equipment.getStats().isEmpty()) {
             throw new SQLException("Data equipment tidak valid.");
         }
 
@@ -248,18 +250,11 @@ public class DatabaseManager {
                 uuid, equipment_type, equipment_id,
                 display_name, rarity, stats
             )
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(uuid, equipment_type)
-            DO UPDATE SET
-                equipment_id = excluded.equipment_id,
-                display_name = excluded.display_name,
-                rarity = excluded.rarity,
-                stats = excluded.stats;
+            VALUES (?, ?, ?, ?, ?, ?);
         """;
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-
             statement.setString(1, uuid.toString());
             statement.setString(2, equipment.getType().name());
             statement.setString(3, equipment.getId());
@@ -275,6 +270,10 @@ public class DatabaseManager {
             EquipmentType type
     ) throws SQLException {
 
+        if (uuid == null || type == null) {
+            throw new SQLException("Data penghapusan tidak valid.");
+        }
+
         String sql = """
             DELETE FROM player_equipment
             WHERE uuid = ? AND equipment_type = ?;
@@ -282,10 +281,14 @@ public class DatabaseManager {
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-
             statement.setString(1, uuid.toString());
             statement.setString(2, type.name());
-            statement.executeUpdate();
+
+            if (statement.executeUpdate() != 1) {
+                throw new SQLException(
+                        "Equipment tidak ditemukan di database."
+                );
+            }
         }
     }
 
@@ -309,30 +312,34 @@ public class DatabaseManager {
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
                     try {
-                        EquipmentType type = EquipmentType.fromName(
-                                result.getString("equipment_type")
-                        );
+                        EquipmentType type =
+                                EquipmentType.fromName(
+                                        result.getString("equipment_type")
+                                );
 
                         EquipmentRarity rarity =
                                 EquipmentRarity.fromName(
                                         result.getString("rarity")
                                 );
 
+                        String id = result.getString("equipment_id");
+                        String name = result.getString("display_name");
+
+                        if (type == null || rarity == null
+                                || id == null || name == null
+                                || name.isBlank()) {
+                            throw new IllegalArgumentException(
+                                    "Identitas equipment tidak valid."
+                            );
+                        }
+
                         Map<EquipmentStat, Double> stats =
                                 deserializeEquipmentStats(
                                         result.getString("stats")
                                 );
 
-                        if (type == null) {
-                            continue;
-                        }
-
                         equipmentList.add(new EquipmentData(
-                                result.getString("equipment_id"),
-                                result.getString("display_name"),
-                                type,
-                                rarity,
-                                stats
+                                id, name, type, rarity, stats
                         ));
 
                     } catch (IllegalArgumentException exception) {
@@ -349,19 +356,29 @@ public class DatabaseManager {
         return equipmentList;
     }
 
-    private String serializeEquipmentStats(EquipmentData equipment) {
+    private String serializeEquipmentStats(EquipmentData equipment)
+            throws SQLException {
+
         StringBuilder result = new StringBuilder();
 
         for (Map.Entry<EquipmentStat, Double> entry
                 : equipment.getStats().entrySet()) {
 
+            EquipmentStat stat = entry.getKey();
+            Double value = entry.getValue();
+
+            if (stat == null || value == null
+                    || !Double.isFinite(value) || value <= 0) {
+                throw new SQLException("Stat equipment tidak valid.");
+            }
+
             if (result.length() > 0) {
                 result.append(";");
             }
 
-            result.append(entry.getKey().name())
+            result.append(stat.name())
                     .append("=")
-                    .append(entry.getValue());
+                    .append(value);
         }
 
         return result.toString();
@@ -375,13 +392,17 @@ public class DatabaseManager {
                 new EnumMap<>(EquipmentStat.class);
 
         if (serialized == null || serialized.isBlank()) {
-            return stats;
+            throw new IllegalArgumentException(
+                    "Stat equipment kosong."
+            );
         }
 
-        for (String entry : serialized.split(";")) {
-            String[] parts = entry.split("=", 2);
+        for (String entry : serialized.split(";", -1)) {
+            String[] parts = entry.split("=", -1);
 
-            if (parts.length != 2) {
+            if (parts.length != 2
+                    || parts[0].isBlank()
+                    || parts[1].isBlank()) {
                 throw new IllegalArgumentException(
                         "Format statistik rusak."
                 );
@@ -392,13 +413,20 @@ public class DatabaseManager {
 
             double value = Double.parseDouble(parts[1]);
 
-            if (stat == null || !Double.isFinite(value) || value <= 0) {
+            if (stat == null || stats.containsKey(stat)
+                    || !Double.isFinite(value) || value <= 0) {
                 throw new IllegalArgumentException(
                         "Statistik equipment tidak valid."
                 );
             }
 
             stats.put(stat, value);
+        }
+
+        if (stats.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Stat equipment kosong."
+            );
         }
 
         return stats;
@@ -415,6 +443,7 @@ public class DatabaseManager {
 
         try {
             connection.close();
+            connection = null;
             plugin.getLogger().info("Database SQLite ditutup.");
         } catch (SQLException exception) {
             plugin.getLogger().severe(
