@@ -3,6 +3,7 @@ package id.attributesrpg;
 
 import org.bukkit.entity.Player;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -46,7 +47,8 @@ public class SkillManager {
             return 0;
         }
 
-        int attributeLevel = data.getAttribute(skill.getAttribute());
+        int attributeLevel =
+                data.getAttribute(skill.getAttribute());
 
         if (attributeLevel >= 40) {
             return 3;
@@ -64,7 +66,8 @@ public class SkillManager {
     }
 
     public boolean equipSkill(Player player, RpgSkill skill) {
-        if (isInCombat(player) || !isUnlocked(player, skill)) {
+        if (isInCombat(player)
+                || !isUnlocked(player, skill)) {
             return false;
         }
 
@@ -120,9 +123,13 @@ public class SkillManager {
                 > System.currentTimeMillis();
     }
 
-    public long getRemainingCooldown(Player player, RpgSkill skill) {
-        long remaining = getCooldowns(player).getOrDefault(skill, 0L)
-                - System.currentTimeMillis();
+    public long getRemainingCooldown(
+            Player player,
+            RpgSkill skill
+    ) {
+        long remaining =
+                getCooldowns(player).getOrDefault(skill, 0L)
+                        - System.currentTimeMillis();
 
         return Math.max(0, (remaining + 999) / 1000);
     }
@@ -131,9 +138,10 @@ public class SkillManager {
         getCooldowns(player).put(
                 skill,
                 System.currentTimeMillis()
-                        + (skill.getCooldownSeconds() * 1000L)
+                        + skill.getCooldownSeconds() * 1000L
         );
     }
+
     public void recordCombat(Player player) {
         lastCombat.put(
                 player.getUniqueId(),
@@ -145,7 +153,8 @@ public class SkillManager {
         Long last = lastCombat.get(player.getUniqueId());
 
         return last != null
-                && System.currentTimeMillis() - last < COMBAT_DURATION;
+                && System.currentTimeMillis() - last
+                < COMBAT_DURATION;
     }
 
     public void loadPlayer(Player player) {
@@ -159,8 +168,10 @@ public class SkillManager {
             ORDER BY slot ASC;
         """;
 
-        try (PreparedStatement statement = plugin.getDatabaseManager()
-                .getConnection().prepareStatement(sql)) {
+        try (PreparedStatement statement =
+                     plugin.getDatabaseManager()
+                             .getConnection()
+                             .prepareStatement(sql)) {
 
             statement.setString(1, uuid.toString());
 
@@ -188,17 +199,25 @@ public class SkillManager {
         }
     }
 
-    private boolean saveLoadout(UUID uuid, List<RpgSkill> skills) {
-        String deleteSql = "DELETE FROM player_skills WHERE uuid = ?";
+    private boolean saveLoadout(
+            UUID uuid,
+            List<RpgSkill> skills
+    ) {
+        String deleteSql =
+                "DELETE FROM player_skills WHERE uuid = ?";
 
         String insertSql = """
             INSERT INTO player_skills (uuid, slot, skill_name)
             VALUES (?, ?, ?);
         """;
 
-        var connection = plugin.getDatabaseManager().getConnection();
+        Connection connection =
+                plugin.getDatabaseManager().getConnection();
+
+        boolean previousAutoCommit;
 
         try {
+            previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
 
             try (PreparedStatement delete =
@@ -225,7 +244,7 @@ public class SkillManager {
                 throw exception;
 
             } finally {
-                connection.setAutoCommit(true);
+                connection.setAutoCommit(previousAutoCommit);
             }
 
         } catch (SQLException exception) {
@@ -256,4 +275,4 @@ public class SkillManager {
         cooldowns.remove(uuid);
         lastCombat.remove(uuid);
     }
-        }
+}
