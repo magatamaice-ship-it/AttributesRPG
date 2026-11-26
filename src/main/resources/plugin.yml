@@ -4,7 +4,7 @@ version: 1.0.0
 main: id.attributesrpg.AttributesRPG
 api-version: '1.21'
 author: AttributesRPG
-description: Custom RPG attributes, leveling, skills, and mob EXP system.
+description: Custom RPG attributes, leveling, skills, equipment, and mob EXP system.
 
 commands:
   attributes:
@@ -24,6 +24,11 @@ commands:
     description: View, equip, unequip, and activate RPG skills.
     usage: /skill [1|2|3|equip|unequip]
     aliases: [skills]
+
+  equipment:
+    description: Open the RPG equipment menu.
+    usage: /equipment
+    aliases: [equip]
 
   addlevel:
     description: Add RPG levels to a player.
