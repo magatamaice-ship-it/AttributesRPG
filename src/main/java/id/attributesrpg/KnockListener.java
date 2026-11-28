@@ -45,7 +45,8 @@ public class KnockListener implements Listener {
         boolean fallDamage =
                 event.getCause() == EntityDamageEvent.DamageCause.FALL;
 
-        boolean playerCombat = event instanceof EntityDamageByEntityEvent damage
+        boolean playerCombat =
+                event instanceof EntityDamageByEntityEvent damage
                 && (damage.getDamager() instanceof Player
                 || damage.getDamager() instanceof Projectile projectile
                 && projectile.getShooter() instanceof Player);
@@ -108,11 +109,7 @@ public class KnockListener implements Listener {
             return;
         }
 
-        if (plugin.getKnockManager().startRevive(helper, target)) {
-            helper.sendMessage(
-                    "§eProses membantu dimulai. Jangan bergerak selama 8 detik."
-            );
-        } else {
+        if (!plugin.getKnockManager().startRevive(helper, target)) {
             helper.sendMessage(
                     "§cTidak bisa membantu pemain tersebut sekarang."
             );
@@ -139,6 +136,7 @@ public class KnockListener implements Listener {
             event.setCancelled(true);
         }
     }
+
     @EventHandler
     public void onHeldItem(PlayerItemHeldEvent event) {
         if (plugin.getKnockManager().isKnocked(event.getPlayer())) {
@@ -188,7 +186,10 @@ public class KnockListener implements Listener {
         KnockMenu.open(player);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
     public void onHelperDamaged(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player helper)) {
             return;
@@ -210,4 +211,4 @@ public class KnockListener implements Listener {
                 event.getEntity().getUniqueId()
         );
     }
-    }
+}
