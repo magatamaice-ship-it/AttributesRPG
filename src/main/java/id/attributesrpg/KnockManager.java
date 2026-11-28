@@ -4,6 +4,7 @@ package id.attributesrpg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.GameMode;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -20,7 +21,6 @@ import java.util.UUID;
 public class KnockManager {
 
     private static final long KNOCK_DURATION = 15 * 60 * 1000L;
-
     private static final long REVIVE_DURATION = 8 * 20L;
     private static final long REVIVE_PROTECTION = 10 * 1000L;
 
@@ -54,7 +54,7 @@ public class KnockManager {
         player.setVelocity(player.getVelocity().zero());
 
         save(data);
-        activateKnock(player, data);
+        activateKnock(player);
     }
 
     public void restoreKnock(Player player) {
@@ -76,15 +76,13 @@ public class KnockManager {
         }
 
         player.setHealth(Math.min(1.0, player.getHealth()));
-        activateKnock(player, data);
+        activateKnock(player);
     }
 
-    private void activateKnock(Player player, PlayerData data) {
+    private void activateKnock(Player player) {
         UUID uuid = player.getUniqueId();
 
         removeEffects(uuid);
-
-        // Memaksa pose merangkak.
         player.setSwimming(true);
 
         BossBar bar = Bukkit.createBossBar(
@@ -132,7 +130,6 @@ public class KnockManager {
             return;
         }
 
-        // Pastikan pose Knock tetap aktif.
         if (!player.isSwimming()) {
             player.setSwimming(true);
         }
@@ -244,10 +241,15 @@ public class KnockManager {
         session.task = task;
         revives.put(targetId, session);
 
-        helper.sendMessage("§aKamu mulai menyelamatkan §f"
-                + target.getName() + "§a.");
-        target.sendMessage("§a"
-                + helper.getName() + " sedang menyelamatkanmu!");
+        helper.sendMessage(
+                "§aKamu mulai menyelamatkan §f"
+                        + target.getName() + "§a."
+        );
+
+        target.sendMessage(
+                "§a" + helper.getName()
+                        + " sedang menyelamatkanmu!"
+        );
 
         sendReviveCountdown(helper, target, 8);
 
@@ -259,8 +261,6 @@ public class KnockManager {
             Player target,
             int seconds
     ) {
-        String message = "§aRevive: §f" + seconds + " detik";
-
         helper.sendActionBar(
                 Component.text("Revive " + seconds + " detik")
         );
@@ -305,6 +305,7 @@ public class KnockManager {
                     "§aKamu berhasil menyelamatkan "
                             + target.getName() + "!"
             );
+
             helper.sendActionBar(
                     Component.text("Revive berhasil!")
             );
@@ -313,6 +314,31 @@ public class KnockManager {
         target.sendActionBar(
                 Component.text("Kamu berhasil diselamatkan!")
         );
+    }
+
+    public void forfeitKnock(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        PlayerData data = getData(player);
+
+        if (data == null || !data.isKnocked()) {
+            return;
+        }
+
+        UUID uuid = player.getUniqueId();
+
+        cancelRevive(uuid);
+        cancelReviveForHelper(uuid);
+
+        data.clearKnockState();
+        save(data);
+        removeEffects(uuid);
+
+        player.setSwimming(false);
+        player.setGameMode(GameMode.SPECTATOR);
+        player.sendMessage("§cKamu menyerah dan tereliminasi.");
     }
 
     public void cancelRevive(UUID targetId) {
