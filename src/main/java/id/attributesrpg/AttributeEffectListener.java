@@ -16,6 +16,9 @@ public class AttributeEffectListener implements Listener {
     private static final String SKILL_DAMAGE_KEY =
             "attributesrpg_skill_damage";
 
+    private static final double MAX_DEFENSE_REDUCTION = 0.75;
+    private static final double MAX_DAMAGE_MULTIPLIER = 10.0;
+
     private final AttributesRPG plugin;
 
     public AttributeEffectListener(AttributesRPG plugin) {
@@ -64,8 +67,6 @@ public class AttributeEffectListener implements Listener {
         PlayerData attackerData = plugin.getPlayerDataManager()
                 .getPlayer(attacker.getUniqueId());
 
-        // Bonus atribut dan critical hanya untuk serangan normal
-        // dan penyerang yang memiliki data RPG.
         if (!skillDamage && attackerData != null) {
 
             if (cause == EntityDamageEvent.DamageCause.MAGIC
@@ -84,7 +85,10 @@ public class AttributeEffectListener implements Listener {
                         EquipmentStat.INTELLIGENCE
                 );
 
-                damage *= 1.0 + attributeBonus + equipmentBonus;
+                damage = applyMultiplier(
+                        damage,
+                        attributeBonus + equipmentBonus
+                );
 
             } else if (ranged) {
 
@@ -101,7 +105,10 @@ public class AttributeEffectListener implements Listener {
                         EquipmentStat.DEXTERITY
                 );
 
-                damage *= 1.0 + attributeBonus + equipmentBonus;
+                damage = applyMultiplier(
+                        damage,
+                        attributeBonus + equipmentBonus
+                );
 
             } else if (melee) {
 
@@ -118,7 +125,10 @@ public class AttributeEffectListener implements Listener {
                         EquipmentStat.STRENGTH
                 );
 
-                damage *= 1.0 + attributeBonus + equipmentBonus;
+                damage = applyMultiplier(
+                        damage,
+                        attributeBonus + equipmentBonus
+                );
             }
 
             if (melee || ranged) {
@@ -132,7 +142,6 @@ public class AttributeEffectListener implements Listener {
             }
         }
 
-        // Defense tetap berlaku untuk serangan normal dan skill.
         double attributeReduction = getBonus(
                 victimData,
                 "defense",
@@ -147,17 +156,36 @@ public class AttributeEffectListener implements Listener {
         );
 
         double totalReduction = Math.min(
-                0.75,
+                MAX_DEFENSE_REDUCTION,
                 attributeReduction + equipmentReduction
         );
 
         damage *= 1.0 - totalReduction;
 
-        if (!Double.isFinite(damage)) {
+        if (!Double.isFinite(damage) || damage < 0) {
             return;
         }
 
-        event.setDamage(Math.max(0, damage));
+        event.setDamage(damage);
+    }
+
+    private double applyMultiplier(
+            double damage,
+            double bonus
+    ) {
+        if (!Double.isFinite(damage)
+                || !Double.isFinite(bonus)) {
+            return damage;
+        }
+
+        double multiplier = Math.max(
+                0,
+                Math.min(1.0 + bonus, MAX_DAMAGE_MULTIPLIER)
+        );
+
+        double result = damage * multiplier;
+
+        return Double.isFinite(result) ? result : damage;
     }
 
     private boolean isSkillDamage(Player victim) {
@@ -195,14 +223,19 @@ public class AttributeEffectListener implements Listener {
             Player player,
             EquipmentStat stat
     ) {
-        double value = plugin.getEquipmentManager()
-                .getTotalStat(player, stat);
+        EquipmentManager manager = plugin.getEquipmentManager();
 
-        if (!Double.isFinite(value)) {
+        if (manager == null) {
             return 0;
         }
 
-        return Math.max(0, value) / 100.0;
+        double value = manager.getTotalStat(player, stat);
+
+        if (!Double.isFinite(value) || value <= 0) {
+            return 0;
+        }
+
+        return value / 100.0;
     }
 
     private double getBonus(
