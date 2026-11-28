@@ -141,6 +141,10 @@ public final class AttributesRPG extends JavaPlugin {
         );
 
         getServer().getPluginManager().registerEvents(
+                new SkillInputListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
                 equipmentMenu, this
         );
     }
