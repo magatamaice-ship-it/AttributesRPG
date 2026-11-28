@@ -11,6 +11,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class EquipmentItemFactory {
@@ -33,14 +34,20 @@ public class EquipmentItemFactory {
     }
 
     public ItemStack createItem(EquipmentData data) {
-        if (data == null || data.getType() == null) {
+        if (!isValidData(data)) {
             throw new IllegalArgumentException(
-                    "EquipmentData atau EquipmentType tidak valid!"
+                    "Data equipment tidak valid!"
             );
         }
 
         ItemStack item = new ItemStack(getMaterial(data.getType()));
         ItemMeta meta = item.getItemMeta();
+
+        if (meta == null) {
+            throw new IllegalStateException(
+                    "Gagal membuat metadata equipment."
+            );
+        }
 
         String color = data.getRarity().getColor();
 
@@ -64,11 +71,10 @@ public class EquipmentItemFactory {
         for (Map.Entry<EquipmentStat, Double> entry
                 : data.getStats().entrySet()) {
 
-            double value = entry.getValue()
-                    * data.getRarity().getBonusMultiplier();
+            double value = data.getScaledStat(entry.getKey());
 
             lore.add(serializer.deserialize(
-                    "§a+" + String.format("%.2f", value)
+                    "§a+" + String.format(Locale.US, "%.2f", value)
                             + " " + entry.getKey().getDisplayName()
             ));
         }
@@ -113,13 +119,45 @@ public class EquipmentItemFactory {
     }
 
     public boolean isEquipment(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) {
+        if (item == null || item.getType().isAir()
+                || !item.hasItemMeta()) {
             return false;
         }
 
-        return item.getItemMeta()
+        Byte marker = item.getItemMeta()
                 .getPersistentDataContainer()
-                .has(equipmentKey, PersistentDataType.BYTE);
+                .get(equipmentKey, PersistentDataType.BYTE);
+
+        return marker != null && marker == (byte) 1;
+    }
+
+    private boolean isValidData(EquipmentData data) {
+        if (data == null
+                || data.getId() == null
+                || data.getId().isBlank()
+                || data.getDisplayName() == null
+                || data.getDisplayName().isBlank()
+                || data.getType() == null
+                || data.getRarity() == null
+                || data.getStats() == null
+                || data.getStats().isEmpty()) {
+            return false;
+        }
+
+        for (Map.Entry<EquipmentStat, Double> entry
+                : data.getStats().entrySet()) {
+
+            if (entry.getKey() == null
+                    || entry.getValue() == null
+                    || !Double.isFinite(entry.getValue())
+                    || entry.getValue() <= 0
+                    || !Double.isFinite(
+                            data.getScaledStat(entry.getKey()))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private String serializeStats(EquipmentData data) {
@@ -150,4 +188,4 @@ public class EquipmentItemFactory {
             case ACCESSORY -> Material.AMETHYST_SHARD;
         };
     }
-    }
+}
