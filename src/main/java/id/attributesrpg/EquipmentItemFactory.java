@@ -134,7 +134,7 @@ public class EquipmentItemFactory {
     private boolean isValidData(EquipmentData data) {
         if (data == null
                 || data.getId() == null
-                || data.getId().isBlank()
+                || !data.getId().matches("[a-zA-Z0-9_-]{2,32}")
                 || data.getDisplayName() == null
                 || data.getDisplayName().isBlank()
                 || data.getType() == null
@@ -147,12 +147,22 @@ public class EquipmentItemFactory {
         for (Map.Entry<EquipmentStat, Double> entry
                 : data.getStats().entrySet()) {
 
-            if (entry.getKey() == null
-                    || entry.getValue() == null
-                    || !Double.isFinite(entry.getValue())
-                    || entry.getValue() <= 0
-                    || !Double.isFinite(
-                            data.getScaledStat(entry.getKey()))) {
+            EquipmentStat stat = entry.getKey();
+            Double value = entry.getValue();
+
+            if (stat == null
+                    || value == null
+                    || !Double.isFinite(value)
+                    || value <= 0) {
+                return false;
+            }
+
+            double scaled = data.getScaledStat(stat);
+            double cap = EquipmentManager.getStatCap(stat);
+
+            if (!Double.isFinite(scaled)
+                    || scaled <= 0
+                    || scaled > cap) {
                 return false;
             }
         }
