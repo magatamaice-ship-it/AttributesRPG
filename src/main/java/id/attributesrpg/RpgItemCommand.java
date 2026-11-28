@@ -287,7 +287,7 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
     }
 
     private void listTemplates(CommandSender sender) {
-        List<EquipmentData> templates =
+        var templates =
                 plugin.getEquipmentTemplateManager().getTemplates();
 
         if (templates.isEmpty()) {
