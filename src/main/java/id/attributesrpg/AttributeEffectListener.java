@@ -8,6 +8,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.metadata.MetadataValue;
 import org.bukkit.projectiles.ProjectileSource;
 
 public class AttributeEffectListener implements Listener {
@@ -21,7 +22,10 @@ public class AttributeEffectListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(
+            priority = EventPriority.HIGH,
+            ignoreCancelled = true
+    )
     public void onEntityDamage(EntityDamageByEntityEvent event) {
 
         if (!(event.getEntity() instanceof Player victim)) {
@@ -47,14 +51,7 @@ public class AttributeEffectListener implements Listener {
             return;
         }
 
-        boolean skillDamage = victim.hasMetadata(SKILL_DAMAGE_KEY);
-
-        PlayerData attackerData = plugin.getPlayerDataManager()
-                .getPlayer(attacker.getUniqueId());
-
-        if (attackerData == null) {
-            return;
-        }
+        boolean skillDamage = isSkillDamage(victim);
 
         EntityDamageEvent.DamageCause cause = event.getCause();
 
@@ -64,8 +61,12 @@ public class AttributeEffectListener implements Listener {
                 cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK
                 || cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK;
 
-        // Bonus atribut dan critical hanya untuk serangan normal.
-        if (!skillDamage) {
+        PlayerData attackerData = plugin.getPlayerDataManager()
+                .getPlayer(attacker.getUniqueId());
+
+        // Bonus atribut dan critical hanya untuk serangan normal
+        // dan penyerang yang memiliki data RPG.
+        if (!skillDamage && attackerData != null) {
 
             if (cause == EntityDamageEvent.DamageCause.MAGIC
                     || cause == EntityDamageEvent.DamageCause.DRAGON_BREATH) {
@@ -159,8 +160,22 @@ public class AttributeEffectListener implements Listener {
         event.setDamage(Math.max(0, damage));
     }
 
-    private Player getPlayerAttacker(EntityDamageByEntityEvent event) {
+    private boolean isSkillDamage(Player victim) {
+        for (MetadataValue value :
+                victim.getMetadata(SKILL_DAMAGE_KEY)) {
 
+            if (value.getOwningPlugin() == plugin
+                    && value.asBoolean()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Player getPlayerAttacker(
+            EntityDamageByEntityEvent event
+    ) {
         if (event.getDamager() instanceof Player player) {
             return player;
         }
