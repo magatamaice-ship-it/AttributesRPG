@@ -1,5 +1,7 @@
+
 package id.attributesrpg;
 
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.boss.BarColor;
@@ -17,8 +19,7 @@ import java.util.UUID;
 
 public class KnockManager {
 
-    private static final long KNOCK_DURATION =
-            15 * 60 * 1000L;
+    private static final long KNOCK_DURATION = 15 * 60 * 1000L;
 
     private static final long REVIVE_DURATION = 8 * 20L;
     private static final long REVIVE_PROTECTION = 10 * 1000L;
@@ -83,6 +84,9 @@ public class KnockManager {
 
         removeEffects(uuid);
 
+        // Memaksa pose merangkak.
+        player.setSwimming(true);
+
         BossBar bar = Bukkit.createBossBar(
                 "§cKNOCKED",
                 BarColor.RED,
@@ -94,7 +98,7 @@ public class KnockManager {
         bossBars.put(uuid, bar);
 
         TextDisplay display = player.getWorld().spawn(
-                player.getLocation().add(0, 2.3, 0),
+                player.getLocation().add(0, 1.2, 0),
                 TextDisplay.class,
                 entity -> {
                     entity.setText(
@@ -118,7 +122,7 @@ public class KnockManager {
 
         timers.put(uuid, task);
     }
-  
+
     private void updateKnock(Player player) {
         UUID uuid = player.getUniqueId();
         PlayerData data = getData(player);
@@ -126,6 +130,11 @@ public class KnockManager {
         if (!player.isOnline() || data == null || !data.isKnocked()) {
             removeEffects(uuid);
             return;
+        }
+
+        // Pastikan pose Knock tetap aktif.
+        if (!player.isSwimming()) {
+            player.setSwimming(true);
         }
 
         long remaining = data.getKnockExpiresAt()
@@ -136,6 +145,7 @@ public class KnockManager {
             data.clearKnockState();
             save(data);
             removeEffects(uuid);
+            player.setSwimming(false);
             player.setHealth(0.0);
             return;
         }
@@ -157,12 +167,13 @@ public class KnockManager {
         TextDisplay display = displays.get(uuid);
 
         if (display != null && display.isValid()) {
-            display.teleport(player.getLocation().add(0, 2.3, 0));
+            display.teleport(player.getLocation().add(0, 1.2, 0));
         }
     }
 
     public boolean startRevive(Player helper, Player target) {
-        if (helper.equals(target) || !helper.isOnline()
+        if (helper.equals(target)
+                || !helper.isOnline()
                 || !target.isOnline()) {
             return false;
         }
@@ -193,7 +204,8 @@ public class KnockManager {
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(
                 plugin,
                 () -> {
-                    if (!helper.isOnline() || !target.isOnline()
+                    if (!helper.isOnline()
+                            || !target.isOnline()
                             || !targetData.isKnocked()
                             || helper.getWorld() != session.location.getWorld()
                             || helper.getLocation().distanceSquared(
@@ -201,6 +213,7 @@ public class KnockManager {
                             || helper.getWorld() != target.getWorld()
                             || helper.getLocation().distanceSquared(
                                     target.getLocation()) > 9) {
+
                         cancelRevive(targetId);
                         return;
                     }
@@ -209,6 +222,19 @@ public class KnockManager {
 
                     if (session.ticks >= REVIVE_DURATION) {
                         completeRevive(target);
+                        return;
+                    }
+
+                    if (session.ticks % 20 == 0) {
+                        int secondsRemaining = (int) (
+                                (REVIVE_DURATION - session.ticks + 19) / 20
+                        );
+
+                        sendReviveCountdown(
+                                helper,
+                                target,
+                                secondsRemaining
+                        );
                     }
                 },
                 0L,
@@ -218,13 +244,41 @@ public class KnockManager {
         session.task = task;
         revives.put(targetId, session);
 
+        helper.sendMessage("§aKamu mulai menyelamatkan §f"
+                + target.getName() + "§a.");
+        target.sendMessage("§a"
+                + helper.getName() + " sedang menyelamatkanmu!");
+
+        sendReviveCountdown(helper, target, 8);
+
         return true;
+    }
+
+    private void sendReviveCountdown(
+            Player helper,
+            Player target,
+            int seconds
+    ) {
+        String message = "§aRevive: §f" + seconds + " detik";
+
+        helper.sendActionBar(
+                Component.text("Revive " + seconds + " detik")
+        );
+
+        target.sendActionBar(
+                Component.text("Diselamatkan: " + seconds + " detik")
+        );
     }
 
     private void completeRevive(Player target) {
         UUID uuid = target.getUniqueId();
 
-        cancelRevive(uuid);
+        ReviveSession session = revives.get(uuid);
+        Player helper = session == null
+                ? null
+                : Bukkit.getPlayer(session.helper);
+
+        stopRevive(uuid, false);
 
         PlayerData data = getData(target);
 
@@ -236,6 +290,7 @@ public class KnockManager {
         save(data);
         removeEffects(uuid);
 
+        target.setSwimming(false);
         target.setHealth(Math.min(4.0, target.getMaxHealth()));
 
         reviveProtection.put(
@@ -244,19 +299,61 @@ public class KnockManager {
         );
 
         target.sendMessage("§aKamu berhasil diselamatkan!");
+
+        if (helper != null && helper.isOnline()) {
+            helper.sendMessage(
+                    "§aKamu berhasil menyelamatkan "
+                            + target.getName() + "!"
+            );
+            helper.sendActionBar(
+                    Component.text("Revive berhasil!")
+            );
+        }
+
+        target.sendActionBar(
+                Component.text("Kamu berhasil diselamatkan!")
+        );
     }
 
     public void cancelRevive(UUID targetId) {
+        stopRevive(targetId, true);
+    }
+
+    private void stopRevive(UUID targetId, boolean notify) {
         ReviveSession session = revives.remove(targetId);
 
-        if (session != null && session.task != null) {
+        if (session == null) {
+            return;
+        }
+
+        if (session.task != null) {
             session.task.cancel();
+        }
+
+        if (notify) {
+            Player helper = Bukkit.getPlayer(session.helper);
+            Player target = Bukkit.getPlayer(targetId);
+
+            if (helper != null && helper.isOnline()) {
+                helper.sendMessage("§cRevive dibatalkan.");
+                helper.sendActionBar(
+                        Component.text("Revive dibatalkan")
+                );
+            }
+
+            if (target != null && target.isOnline()) {
+                target.sendMessage("§cProses revive dibatalkan.");
+                target.sendActionBar(
+                        Component.text("Revive dibatalkan")
+                );
+            }
         }
     }
 
     public void cancelReviveForHelper(UUID helperId) {
         for (Map.Entry<UUID, ReviveSession> entry
                 : new HashMap<>(revives).entrySet()) {
+
             if (entry.getValue().helper.equals(helperId)) {
                 cancelRevive(entry.getKey());
             }
@@ -303,7 +400,7 @@ public class KnockManager {
         } catch (SQLException exception) {
             plugin.getLogger().severe(
                     "Gagal menyimpan status Knock "
-                    + data.getPlayerName()
+                            + data.getPlayerName()
             );
             exception.printStackTrace();
         }
@@ -351,4 +448,4 @@ public class KnockManager {
             this.ticks = 0;
         }
     }
-          }
+}
