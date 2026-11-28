@@ -15,11 +15,15 @@ import java.util.Map;
 
 public class EquipmentTemplateManager {
 
+    private static final String ID_PATTERN = "[a-zA-Z0-9_-]{2,32}";
+
     private final AttributesRPG plugin;
     private final File file;
 
     private final Map<String, EquipmentData> templates =
             new HashMap<>();
+
+    private YamlConfiguration config;
 
     public EquipmentTemplateManager(AttributesRPG plugin) {
         this.plugin = plugin;
@@ -34,13 +38,21 @@ public class EquipmentTemplateManager {
     public void load() {
         templates.clear();
 
+        if (!plugin.getDataFolder().exists()
+                && !plugin.getDataFolder().mkdirs()) {
+            plugin.getLogger().severe(
+                    "Gagal membuat folder plugin."
+            );
+            return;
+        }
+
         if (!file.exists()) {
+            config = new YamlConfiguration();
             saveFile();
             return;
         }
 
-        YamlConfiguration config =
-                YamlConfiguration.loadConfiguration(file);
+        config = YamlConfiguration.loadConfiguration(file);
 
         ConfigurationSection section =
                 config.getConfigurationSection("templates");
@@ -51,6 +63,16 @@ public class EquipmentTemplateManager {
 
         for (String id : section.getKeys(false)) {
             try {
+                String key = id.toLowerCase(Locale.ROOT);
+
+                if (!id.matches(ID_PATTERN)
+                        || templates.containsKey(key)) {
+                    plugin.getLogger().warning(
+                            "ID template tidak valid atau duplikat: " + id
+                    );
+                    continue;
+                }
+
                 String path = "templates." + id;
 
                 String name = config.getString(
@@ -99,9 +121,14 @@ public class EquipmentTemplateManager {
                                 statName
                         );
 
-                        if (Double.isFinite(value) && value > 0) {
-                            stats.put(stat, value);
+                        if (!Double.isFinite(value) || value <= 0
+                                || stats.containsKey(stat)) {
+                            throw new IllegalArgumentException(
+                                    "Stat tidak valid: " + statName
+                            );
                         }
+
+                        stats.put(stat, value);
                     }
                 }
 
@@ -120,11 +147,12 @@ public class EquipmentTemplateManager {
                     continue;
                 }
 
-                templates.put(id.toLowerCase(Locale.ROOT), data);
+                templates.put(key, data);
 
             } catch (IllegalArgumentException exception) {
                 plugin.getLogger().warning(
-                        "Template equipment tidak valid: " + id
+                        "Template equipment tidak valid: "
+                                + id + " - " + exception.getMessage()
                 );
             }
         }
@@ -159,16 +187,20 @@ public class EquipmentTemplateManager {
     private boolean isValid(EquipmentData data) {
         if (data == null
                 || data.getId() == null
-                || data.getId().isBlank()
+                || !data.getId().matches(ID_PATTERN)
                 || data.getDisplayName() == null
                 || data.getDisplayName().isBlank()
                 || data.getType() == null
                 || data.getRarity() == null
+                || data.getStats() == null
                 || data.getStats().isEmpty()) {
             return false;
         }
 
-        if (!data.getId().matches("[a-zA-Z0-9_-]+")) {
+        double multiplier =
+                data.getRarity().getBonusMultiplier();
+
+        if (!Double.isFinite(multiplier) || multiplier <= 0) {
             return false;
         }
 
@@ -183,11 +215,12 @@ public class EquipmentTemplateManager {
                 return false;
             }
 
+            double scaledValue = value * multiplier;
             double cap = EquipmentManager.getStatCap(stat);
 
-            if (cap <= 0
-                    || value * data.getRarity().getBonusMultiplier()
-                    > cap) {
+            if (!Double.isFinite(scaledValue)
+                    || cap <= 0
+                    || scaledValue > cap) {
                 return false;
             }
         }
@@ -230,8 +263,11 @@ public class EquipmentTemplateManager {
     }
 
     public boolean saveFile() {
-        YamlConfiguration config =
-                new YamlConfiguration();
+        if (config == null) {
+            config = new YamlConfiguration();
+        }
+
+        config.set("templates", null);
 
         for (Map.Entry<String, EquipmentData> entry :
                 templates.entrySet()) {
