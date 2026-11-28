@@ -1,6 +1,8 @@
+
 package id.attributesrpg;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -18,7 +20,7 @@ public class PlayerDataListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        var player = event.getPlayer();
+        Player player = event.getPlayer();
 
         try {
             plugin.getPlayerDataManager().loadPlayer(
@@ -28,31 +30,33 @@ public class PlayerDataListener implements Listener {
 
             plugin.getSkillManager().loadPlayer(player);
 
-            // Muat equipment yang tersimpan di SQLite.
             plugin.getEquipmentManager().loadPlayer(player);
 
-            Bukkit.getScheduler().runTask(
-                    plugin,
-                    () -> plugin.getKnockManager().restoreKnock(player)
-            );
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) {
+                    return;
+                }
+
+                plugin.getAttributeStatListener().applyStats(player);
+
+                plugin.getKnockManager().restoreKnock(player);
+            });
 
         } catch (SQLException exception) {
             plugin.getLogger().severe(
                     "Gagal memuat data " + player.getName()
             );
+
             exception.printStackTrace();
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        var player = event.getPlayer();
+        Player player = event.getPlayer();
 
         plugin.getKnockManager().handleQuit(player);
-
         plugin.getSkillManager().clearPlayer(player);
-
-        // Hapus data equipment dari memori, bukan dari SQLite.
         plugin.getEquipmentManager().clearPlayer(player);
 
         try {
@@ -64,6 +68,7 @@ public class PlayerDataListener implements Listener {
             plugin.getLogger().severe(
                     "Gagal menyimpan data " + player.getName()
             );
+
             exception.printStackTrace();
         }
     }
