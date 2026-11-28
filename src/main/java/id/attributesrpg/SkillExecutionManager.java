@@ -1,3 +1,4 @@
+
 package id.attributesrpg;
 
 import org.bukkit.Particle;
@@ -288,4 +289,4 @@ public class SkillExecutionManager {
                 .filter(target -> !target.isDead())
                 .toList();
     }
-    }
+}
