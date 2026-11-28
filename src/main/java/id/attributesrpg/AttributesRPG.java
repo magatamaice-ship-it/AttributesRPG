@@ -1,6 +1,7 @@
 
 package id.attributesrpg;
 
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
@@ -35,115 +36,150 @@ public final class AttributesRPG extends JavaPlugin {
         saveDefaultConfig();
 
         try {
-            databaseManager = new DatabaseManager(this);
-            databaseManager.initialize();
-
-            playerDataManager = new PlayerDataManager(databaseManager);
-            levelManager = new LevelManager(this);
-            attributeManager = new AttributeManager(this);
-            attributeStatListener = new AttributeStatListener(this);
-            resetItemManager = new ResetItemManager(this);
-            criticalHitManager = new CriticalHitManager(this);
-            knockManager = new KnockManager(this);
-
-            skillManager = new SkillManager(this);
-            skillExecutionManager = new SkillExecutionManager(this);
-            skillMenu = new SkillMenu(this);
-            skillHudTask = new SkillHudTask(this);
-
-            equipmentManager = new EquipmentManager(this);
-            equipmentItemFactory = new EquipmentItemFactory(this);
-            equipmentItemParser = new EquipmentItemParser(this);
-            equipmentMenu = new EquipmentMenu(
-                    equipmentManager,
-                    equipmentItemFactory,
-                    equipmentItemParser
-            );
-
-            equipmentTemplateManager =
-                    new EquipmentTemplateManager(this);
-
-            getServer().getPluginManager().registerEvents(
-                    new PlayerDataListener(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new MobExpListener(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new AttributeEffectListener(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    attributeStatListener, this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new LuckEnduranceListener(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new AttributeMenuListener(), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new ResetItemListener(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new KnockListener(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new KnockMenu(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new SkillCombatListener(this), this
-            );
-            getServer().getPluginManager().registerEvents(
-                    skillMenu, this
-            );
-            getServer().getPluginManager().registerEvents(
-                    equipmentMenu, this
-            );
-
+            initializeManagers();
+            registerListeners();
             registerCommands();
 
             skillHudTask.start();
 
         } catch (SQLException exception) {
-            getLogger().severe("Gagal mengaktifkan database!");
+            getLogger().severe(
+                    "Gagal mengaktifkan database!"
+            );
+            exception.printStackTrace();
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+
+        } catch (RuntimeException exception) {
+            getLogger().severe(
+                    "Gagal menginisialisasi AttributesRPG!"
+            );
             exception.printStackTrace();
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
 
-        getLogger().info("AttributesRPG berhasil diaktifkan!");
+        getLogger().info(
+                "AttributesRPG berhasil diaktifkan!"
+        );
+    }
+
+    private void initializeManagers() throws SQLException {
+        databaseManager = new DatabaseManager(this);
+        databaseManager.initialize();
+
+        playerDataManager = new PlayerDataManager(databaseManager);
+        levelManager = new LevelManager(this);
+        attributeManager = new AttributeManager(this);
+        attributeStatListener = new AttributeStatListener(this);
+        resetItemManager = new ResetItemManager(this);
+        criticalHitManager = new CriticalHitManager(this);
+        knockManager = new KnockManager(this);
+
+        skillManager = new SkillManager(this);
+        skillExecutionManager = new SkillExecutionManager(this);
+        skillMenu = new SkillMenu(this);
+        skillHudTask = new SkillHudTask(this);
+
+        equipmentManager = new EquipmentManager(this);
+        equipmentItemFactory = new EquipmentItemFactory(this);
+        equipmentItemParser = new EquipmentItemParser(this);
+
+        equipmentMenu = new EquipmentMenu(
+                equipmentManager,
+                equipmentItemFactory,
+                equipmentItemParser
+        );
+
+        equipmentTemplateManager =
+                new EquipmentTemplateManager(this);
+    }
+
+    private void registerListeners() {
+        getServer().getPluginManager().registerEvents(
+                new PlayerDataListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new MobExpListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new AttributeEffectListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                attributeStatListener, this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new LuckEnduranceListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new AttributeMenuListener(), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new ResetItemListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new KnockListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new KnockMenu(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                new SkillCombatListener(this), this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                skillMenu, this
+        );
+
+        getServer().getPluginManager().registerEvents(
+                equipmentMenu, this
+        );
     }
 
     private void registerCommands() {
-        getCommand("attributes").setExecutor(
+        requireCommand("attributes").setExecutor(
                 new AttributesCommand(this)
         );
-        getCommand("stats").setExecutor(
+
+        requireCommand("stats").setExecutor(
                 new StatsCommand(this)
         );
-        getCommand("level").setExecutor(
+
+        requireCommand("level").setExecutor(
                 new LevelCommand(this)
         );
-        getCommand("setitem").setExecutor(
+
+        requireCommand("setitem").setExecutor(
                 new SetItemCommand(this)
         );
-        getCommand("mobexp").setExecutor(
+
+        requireCommand("mobexp").setExecutor(
                 new MobExpCommand(this)
         );
 
         PlayerAdminCommand adminCommand =
                 new PlayerAdminCommand(this);
 
-        getCommand("setlevel").setExecutor(adminCommand);
-        getCommand("addlevel").setExecutor(adminCommand);
-        getCommand("addexp").setExecutor(adminCommand);
-        getCommand("setexp").setExecutor(adminCommand);
-        getCommand("givepoints").setExecutor(adminCommand);
+        requireCommand("setlevel").setExecutor(adminCommand);
+        requireCommand("addlevel").setExecutor(adminCommand);
+        requireCommand("addexp").setExecutor(adminCommand);
+        requireCommand("setexp").setExecutor(adminCommand);
+        requireCommand("givepoints").setExecutor(adminCommand);
 
-        getCommand("setattribute").setExecutor(
+        requireCommand("setattribute").setExecutor(
                 new SetAttributeCommand(this)
         );
-        getCommand("resetattribute").setExecutor(
+
+        requireCommand("resetattribute").setExecutor(
                 new ResetAttributeCommand(this)
         );
 
@@ -153,20 +189,33 @@ public final class AttributesRPG extends JavaPlugin {
                 skillMenu
         );
 
-        getCommand("skill").setExecutor(skillCommand);
-        getCommand("skill").setTabCompleter(skillCommand);
+        requireCommand("skill").setExecutor(skillCommand);
+        requireCommand("skill").setTabCompleter(skillCommand);
 
         EquipmentCommand equipmentCommand =
                 new EquipmentCommand(equipmentMenu);
 
-        getCommand("equipment").setExecutor(equipmentCommand);
-        getCommand("equipment").setTabCompleter(equipmentCommand);
+        requireCommand("equipment").setExecutor(equipmentCommand);
+        requireCommand("equipment").setTabCompleter(equipmentCommand);
 
         RpgItemCommand rpgItemCommand =
                 new RpgItemCommand(this);
 
-        getCommand("rpgitem").setExecutor(rpgItemCommand);
-        getCommand("rpgitem").setTabCompleter(rpgItemCommand);
+        requireCommand("rpgitem").setExecutor(rpgItemCommand);
+        requireCommand("rpgitem").setTabCompleter(rpgItemCommand);
+    }
+
+    private PluginCommand requireCommand(String name) {
+        PluginCommand command = getCommand(name);
+
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Command '" + name
+                            + "' tidak ditemukan di plugin.yml!"
+            );
+        }
+
+        return command;
     }
 
     @Override
@@ -189,6 +238,10 @@ public final class AttributesRPG extends JavaPlugin {
 
         if (databaseManager != null) {
             databaseManager.close();
+        }
+
+        if (instance == this) {
+            instance = null;
         }
     }
 
