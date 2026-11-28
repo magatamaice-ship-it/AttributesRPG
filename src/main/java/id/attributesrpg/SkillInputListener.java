@@ -41,6 +41,7 @@ public class SkillInputListener implements Listener {
                 || action == Action.RIGHT_CLICK_BLOCK) {
 
             event.setCancelled(true);
+            lastShiftPress.remove(player.getUniqueId());
             activateSkill(player, 1);
             return;
         }
@@ -49,6 +50,7 @@ public class SkillInputListener implements Listener {
                 || action == Action.LEFT_CLICK_BLOCK) {
 
             event.setCancelled(true);
+            lastShiftPress.remove(player.getUniqueId());
             activateSkill(player, 2);
         }
     }
