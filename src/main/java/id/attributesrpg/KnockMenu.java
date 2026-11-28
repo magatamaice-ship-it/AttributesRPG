@@ -7,7 +7,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -36,30 +35,34 @@ public class KnockMenu implements Listener {
 
         waitingMeta.setDisplayName("§aMenunggu Bantuan");
         waitingMeta.setLore(Arrays.asList(
-                "§7Kamu sedang dalam kondisi Knock.",
-                "§7Pemain lain dapat membantumu.",
-                "§eKlik untuk tetap menunggu."
+                "§7Kamu tetap dalam kondisi Knock.",
+                "§7Pemain lain masih bisa menyelamatkanmu.",
+                "",
+                "§eKlik untuk menunggu bantuan."
         ));
 
         waiting.setItemMeta(waitingMeta);
 
-        ItemStack close = new ItemStack(Material.BARRIER);
-        ItemMeta closeMeta = close.getItemMeta();
+        ItemStack surrender = new ItemStack(Material.BARRIER);
+        ItemMeta surrenderMeta = surrender.getItemMeta();
 
-        closeMeta.setDisplayName("§cTutup Menu");
-        closeMeta.setLore(Arrays.asList(
-                "§7Tutup menu dan tetap dalam",
-                "§7kondisi Knock."
+        surrenderMeta.setDisplayName("§cMenyerah");
+        surrenderMeta.setLore(Arrays.asList(
+                "§7Mengakhiri kesempatan untuk",
+                "§7melanjutkan pertarungan.",
+                "",
+                "§cPilihan ini bersifat final.",
+                "§eKlik untuk menyerah."
         ));
 
-        close.setItemMeta(closeMeta);
+        surrender.setItemMeta(surrenderMeta);
 
         inventory.setItem(11, waiting);
-        inventory.setItem(15, close);
+        inventory.setItem(15, surrender);
 
         player.openInventory(inventory);
     }
-  
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!event.getView().getTitle().equals(TITLE)) {
@@ -69,6 +72,11 @@ public class KnockMenu implements Listener {
         event.setCancelled(true);
 
         if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        if (!plugin.getKnockManager().isKnocked(player)) {
+            player.closeInventory();
             return;
         }
 
@@ -82,18 +90,12 @@ public class KnockMenu implements Listener {
 
         if (event.getRawSlot() == 15) {
             player.closeInventory();
-        }
-    }
 
-    @EventHandler
-    public void onInventoryClose(InventoryCloseEvent event) {
-        if (!event.getView().getTitle().equals(TITLE)) {
-            return;
-        }
+            player.sendMessage(
+                    "§cKamu memilih menyerah dan keluar dari pertarungan."
+            );
 
-        if (event.getPlayer() instanceof Player player
-                && !plugin.getKnockManager().isKnocked(player)) {
-            return;
+            plugin.getKnockManager().forfeitKnock(player);
         }
     }
 }
