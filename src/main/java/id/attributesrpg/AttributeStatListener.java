@@ -31,22 +31,15 @@ public class AttributeStatListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-
-        plugin.getServer().getScheduler().runTask(
-                plugin,
-                () -> {
-                    if (player.isOnline()) {
-                        applyStats(player);
-                    }
-                }
-        );
+        scheduleApply(event.getPlayer());
     }
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
-        Player player = event.getPlayer();
+        scheduleApply(event.getPlayer());
+    }
 
+    private void scheduleApply(Player player) {
         plugin.getServer().getScheduler().runTask(
                 plugin,
                 () -> {
@@ -65,13 +58,9 @@ public class AttributeStatListener implements Listener {
         PlayerData data = plugin.getPlayerDataManager()
                 .getPlayer(player.getUniqueId());
 
-        if (data == null) {
-            return;
-        }
-
         EquipmentManager equipment = plugin.getEquipmentManager();
 
-        if (equipment == null) {
+        if (data == null || equipment == null) {
             return;
         }
 
@@ -121,15 +110,16 @@ public class AttributeStatListener implements Listener {
                         * speedPerLevel
                         + equipmentSpeed / 100.0;
 
-        if (!Double.isFinite(healthBonus)
-                || healthBonus < 0) {
+        if (!Double.isFinite(healthBonus)) {
             healthBonus = 0;
         }
 
-        if (!Double.isFinite(speedBonus)
-                || speedBonus < 0) {
+        if (!Double.isFinite(speedBonus)) {
             speedBonus = 0;
         }
+
+        healthBonus = Math.max(0, healthBonus);
+        speedBonus = Math.max(0, speedBonus);
 
         applyModifier(
                 player,
@@ -150,9 +140,12 @@ public class AttributeStatListener implements Listener {
         AttributeInstance healthAttribute =
                 player.getAttribute(Attribute.MAX_HEALTH);
 
-        if (healthAttribute != null
-                && player.getHealth() > healthAttribute.getValue()) {
-            player.setHealth(healthAttribute.getValue());
+        if (healthAttribute != null) {
+            double maximumHealth = healthAttribute.getValue();
+
+            if (player.getHealth() > maximumHealth) {
+                player.setHealth(maximumHealth);
+            }
         }
     }
 
