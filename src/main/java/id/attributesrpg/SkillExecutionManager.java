@@ -1,10 +1,9 @@
-
 package id.attributesrpg;
 
 import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -14,6 +13,9 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class SkillExecutionManager {
+
+    private static final String SKILL_DAMAGE_KEY =
+            "attributesrpg_skill_damage";
 
     private final AttributesRPG plugin;
 
@@ -45,7 +47,8 @@ public class SkillExecutionManager {
 
         if (manager.isOnCooldown(player, skill)) {
             player.sendMessage("§cSkill cooldown: "
-                    + manager.getRemainingCooldown(player, skill) + " detik.");
+                    + manager.getRemainingCooldown(player, skill)
+                    + " detik.");
             return false;
         }
 
@@ -56,7 +59,8 @@ public class SkillExecutionManager {
         }
 
         manager.startCooldown(player, skill);
-        player.sendMessage("§aSkill digunakan: §e" + skill.getDisplayName());
+        player.sendMessage("§aSkill digunakan: §e"
+                + skill.getDisplayName());
         return true;
     }
 
@@ -73,6 +77,21 @@ public class SkillExecutionManager {
         };
     }
 
+    private void dealSkillDamage(Player attacker,
+                                Player target,
+                                double damage) {
+        target.setMetadata(
+                SKILL_DAMAGE_KEY,
+                new FixedMetadataValue(plugin, true)
+        );
+
+        try {
+            target.damage(damage, attacker);
+        } finally {
+            target.removeMetadata(SKILL_DAMAGE_KEY, plugin);
+        }
+    }
+
     private boolean heavyStrike(Player player, int level) {
         Player target = findTarget(player, 4.0, 0.65);
 
@@ -81,10 +100,11 @@ public class SkillExecutionManager {
             return false;
         }
 
-        target.damage(4.0 + (level * 2.0), player);
+        dealSkillDamage(player, target, 4.0 + (level * 2.0));
+
         target.setVelocity(target.getVelocity().add(
-                player.getLocation().getDirection().multiply(0.45)
-                        .setY(0.18)));
+                player.getLocation().getDirection()
+                        .multiply(0.45).setY(0.18)));
 
         target.getWorld().spawnParticle(
                 Particle.CRIT, target.getLocation().add(0, 1, 0),
@@ -131,13 +151,13 @@ public class SkillExecutionManager {
                 Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.4f);
         return true;
     }
-  
+
     private boolean dash(Player player, int level) {
         Vector direction = player.getLocation().getDirection()
                 .setY(0).normalize();
 
-        player.setVelocity(direction.multiply(1.0 + (level * 0.25))
-                .setY(0.25));
+        player.setVelocity(direction.multiply(
+                1.0 + (level * 0.25)).setY(0.25));
 
         player.getWorld().spawnParticle(
                 Particle.CLOUD, player.getLocation(),
@@ -157,7 +177,7 @@ public class SkillExecutionManager {
         }
 
         for (Player target : targets) {
-            target.damage(3.0 + (level * 2.0), player);
+            dealSkillDamage(player, target, 3.0 + (level * 2.0));
         }
 
         player.getWorld().spawnParticle(
@@ -181,7 +201,7 @@ public class SkillExecutionManager {
         double bonus = ThreadLocalRandom.current()
                 .nextDouble(2.0, 4.0 + (level * 2.0));
 
-        target.damage(bonus, player);
+        dealSkillDamage(player, target, bonus);
 
         target.getWorld().spawnParticle(
                 Particle.CRIT, target.getLocation().add(0, 1, 0),
@@ -225,7 +245,7 @@ public class SkillExecutionManager {
             return false;
         }
 
-        target.damage(3.0 + (level * 2.0), player);
+        dealSkillDamage(player, target, 3.0 + (level * 2.0));
 
         target.getWorld().spawnParticle(
                 Particle.CRIT, target.getLocation().add(0, 1, 0),
@@ -251,7 +271,8 @@ public class SkillExecutionManager {
                         return false;
                     }
 
-                    return direction.dot(toTarget.normalize()) >= minimumDot;
+                    return direction.dot(toTarget.normalize())
+                            >= minimumDot;
                 })
                 .min(Comparator.comparingDouble(
                         target -> target.getLocation()
@@ -267,4 +288,4 @@ public class SkillExecutionManager {
                 .filter(target -> !target.isDead())
                 .toList();
     }
-}
+    }
