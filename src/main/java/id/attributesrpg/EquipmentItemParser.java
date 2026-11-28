@@ -1,3 +1,4 @@
+
 package id.attributesrpg;
 
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -18,12 +19,16 @@ public class EquipmentItemParser {
     private final NamespacedKey rarityKey;
     private final NamespacedKey statsKey;
 
+    private final EquipmentManager equipmentManager;
+
     public EquipmentItemParser(AttributesRPG plugin) {
         equipmentKey = new NamespacedKey(plugin, "rpg_equipment");
         idKey = new NamespacedKey(plugin, "equipment_id");
         typeKey = new NamespacedKey(plugin, "equipment_type");
         rarityKey = new NamespacedKey(plugin, "equipment_rarity");
         statsKey = new NamespacedKey(plugin, "equipment_stats");
+
+        equipmentManager = plugin.getEquipmentManager();
     }
 
     public EquipmentData parse(ItemStack item) {
@@ -33,6 +38,11 @@ public class EquipmentItemParser {
         }
 
         ItemMeta meta = item.getItemMeta();
+
+        if (meta == null) {
+            return null;
+        }
+
         PersistentDataContainer data =
                 meta.getPersistentDataContainer();
 
@@ -120,12 +130,18 @@ public class EquipmentItemParser {
             displayName = "Equipment";
         }
 
-        return new EquipmentData(
+        EquipmentData equipment = new EquipmentData(
                 id,
                 displayName,
                 type,
                 rarity,
                 stats
         );
+
+        if (!equipmentManager.isValidEquipment(equipment)) {
+            return null;
+        }
+
+        return equipment;
     }
 }
