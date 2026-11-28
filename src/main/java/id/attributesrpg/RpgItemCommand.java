@@ -18,6 +18,9 @@ import java.util.Map;
 
 public class RpgItemCommand implements CommandExecutor, TabCompleter {
 
+    private static final String PERMISSION = "attributesrpg.admin";
+    private static final String ID_PATTERN = "[a-zA-Z0-9_-]{2,32}";
+
     private final AttributesRPG plugin;
 
     public RpgItemCommand(AttributesRPG plugin) {
@@ -31,7 +34,7 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
             String label,
             String[] args
     ) {
-        if (!sender.hasPermission("attributesrpg.admin")) {
+        if (!sender.hasPermission(PERMISSION)) {
             sender.sendMessage("§cKamu tidak memiliki izin.");
             return true;
         }
@@ -54,7 +57,9 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
 
     private void createItem(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cPerintah ini hanya bisa digunakan pemain.");
+            sender.sendMessage(
+                    "§cPerintah ini hanya bisa digunakan pemain."
+            );
             return;
         }
 
@@ -68,12 +73,19 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
         try {
             String id = args[1].toLowerCase(Locale.ROOT);
 
-            if (!id.matches("[a-zA-Z0-9_-]+")) {
-                player.sendMessage("§cID hanya boleh berisi huruf, angka, _ dan -.");
+            if (!id.matches(ID_PATTERN)) {
+                player.sendMessage(
+                        "§cID harus 2-32 karakter: huruf, angka, _ atau -."
+                );
                 return;
             }
 
-            String displayName = args[2].replace("_", " ");
+            String displayName = args[2].replace("_", " ").trim();
+
+            if (displayName.isBlank()) {
+                player.sendMessage("§cNama equipment tidak boleh kosong.");
+                return;
+            }
 
             EquipmentType type = EquipmentType.valueOf(
                     args[3].toUpperCase(Locale.ROOT)
@@ -87,10 +99,14 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
                     new EnumMap<>(EquipmentStat.class);
 
             for (int i = 5; i < args.length; i++) {
-                String[] entry = args[i].split("=");
+                String[] entry = args[i].split("=", -1);
 
-                if (entry.length != 2) {
-                    player.sendMessage("§cFormat stat salah: " + args[i]);
+                if (entry.length != 2
+                        || entry[0].isBlank()
+                        || entry[1].isBlank()) {
+                    player.sendMessage(
+                            "§cFormat stat salah: " + args[i]
+                    );
                     return;
                 }
 
@@ -101,12 +117,16 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
                 double value = Double.parseDouble(entry[1]);
 
                 if (!Double.isFinite(value) || value <= 0) {
-                    player.sendMessage("§cNilai stat harus lebih dari 0.");
+                    player.sendMessage(
+                            "§cNilai stat harus lebih dari 0."
+                    );
                     return;
                 }
 
                 if (stats.putIfAbsent(stat, value) != null) {
-                    player.sendMessage("§cStat tidak boleh ditulis dua kali.");
+                    player.sendMessage(
+                            "§cStat tidak boleh ditulis dua kali."
+                    );
                     return;
                 }
             }
@@ -124,13 +144,15 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
 
             if (!saved) {
                 player.sendMessage(
-                        "§cTemplate gagal disimpan. ID mungkin sudah digunakan."
+                        "§cTemplate gagal disimpan. ID mungkin sudah digunakan atau statistik melewati batas."
                 );
                 return;
             }
 
-            giveStack(player, plugin.getEquipmentItemFactory()
-                    .createItem(data));
+            ItemStack item = plugin.getEquipmentItemFactory()
+                    .createItem(data);
+
+            giveStack(player, item);
 
             player.sendMessage(
                     "§aTemplate berhasil disimpan: §f" + id
@@ -142,8 +164,10 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
             );
         } catch (Exception exception) {
             player.sendMessage("§cGagal membuat equipment.");
+
             plugin.getLogger().warning(
-                    "Gagal membuat equipment: " + exception.getMessage()
+                    "Gagal membuat equipment: "
+                            + exception.getMessage()
             );
         }
     }
@@ -157,7 +181,9 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
         Player target = Bukkit.getPlayerExact(args[1]);
 
         if (target == null) {
-            sender.sendMessage("§cPemain tidak ditemukan atau offline.");
+            sender.sendMessage(
+                    "§cPemain tidak ditemukan atau offline."
+            );
             return;
         }
 
@@ -166,35 +192,54 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
                     .getTemplate(args[2]);
 
             if (data == null) {
-                sender.sendMessage("§cTemplate tidak ditemukan: " + args[2]);
+                sender.sendMessage(
+                        "§cTemplate tidak ditemukan: " + args[2]
+                );
                 return;
             }
 
-            ItemStack item = plugin.getEquipmentItemFactory()
-                    .createItem(data);
+            try {
+                ItemStack item = plugin.getEquipmentItemFactory()
+                        .createItem(data);
 
-            giveStack(target, item);
+                giveStack(target, item);
 
-            sender.sendMessage(
-                    "§aEquipment §f" + data.getDisplayName()
-                            + " §atelah diberikan kepada §f"
-                            + target.getName()
-            );
+                sender.sendMessage(
+                        "§aEquipment §f" + data.getDisplayName()
+                                + " §atelah diberikan kepada §f"
+                                + target.getName()
+                );
 
-            target.sendMessage(
-                    "§aKamu menerima equipment: §f"
-                            + data.getDisplayName()
-            );
+                target.sendMessage(
+                        "§aKamu menerima equipment: §f"
+                                + data.getDisplayName()
+                );
+
+            } catch (Exception exception) {
+                sender.sendMessage(
+                        "§cGagal membuat item equipment."
+                );
+
+                plugin.getLogger().warning(
+                        "Gagal memberikan equipment: "
+                                + exception.getMessage()
+                );
+            }
+
             return;
         }
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cConsole harus menggunakan ID template.");
+            sender.sendMessage(
+                    "§cConsole harus menggunakan ID template."
+            );
             return;
         }
 
         if (target.equals(player)) {
-            player.sendMessage("§cTidak bisa memberikan item kepada diri sendiri.");
+            player.sendMessage(
+                    "§cTidak bisa memberikan item kepada diri sendiri."
+            );
             return;
         }
 
@@ -202,22 +247,35 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
 
         if (held.getType() == Material.AIR
                 || !plugin.getEquipmentItemFactory().isEquipment(held)) {
-            player.sendMessage("§cPegang equipment RPG di tangan utama.");
+            player.sendMessage(
+                    "§cPegang equipment RPG di tangan utama."
+            );
             return;
         }
 
         ItemStack transferred = held.clone();
+
+        giveStack(target, transferred);
+
         player.getInventory().setItemInMainHand(
                 new ItemStack(Material.AIR)
         );
 
-        giveStack(target, transferred);
+        player.sendMessage(
+                "§aEquipment diberikan kepada " + target.getName()
+        );
 
-        player.sendMessage("§aEquipment diberikan kepada " + target.getName());
-        target.sendMessage("§aKamu menerima equipment dari " + player.getName());
+        target.sendMessage(
+                "§aKamu menerima equipment dari " + player.getName()
+        );
     }
 
     private void giveStack(Player target, ItemStack item) {
+        if (target == null || item == null
+                || item.getType().isAir()) {
+            return;
+        }
+
         Map<Integer, ItemStack> leftovers =
                 target.getInventory().addItem(item);
 
@@ -229,15 +287,19 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
     }
 
     private void listTemplates(CommandSender sender) {
-        var templates = plugin.getEquipmentTemplateManager()
-                .getTemplates();
+        List<EquipmentData> templates =
+                plugin.getEquipmentTemplateManager().getTemplates();
 
         if (templates.isEmpty()) {
-            sender.sendMessage("§eBelum ada template equipment.");
+            sender.sendMessage(
+                    "§eBelum ada template equipment."
+            );
             return;
         }
 
-        sender.sendMessage("§6===== Equipment Templates =====");
+        sender.sendMessage(
+                "§6===== Equipment Templates ====="
+        );
 
         for (EquipmentData data : templates) {
             sender.sendMessage(
@@ -259,17 +321,29 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
                 .deleteTemplate(args[1]);
 
         if (deleted) {
-            sender.sendMessage("§aTemplate berhasil dihapus.");
+            sender.sendMessage(
+                    "§aTemplate berhasil dihapus."
+            );
         } else {
-            sender.sendMessage("§cTemplate tidak ditemukan atau gagal dihapus.");
+            sender.sendMessage(
+                    "§cTemplate tidak ditemukan atau gagal dihapus."
+            );
         }
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage("§6===== AttributesRPG Item =====");
-        sender.sendMessage("§e/rpgitem create <id> <nama> <type> <rarity> <STAT=VALUE>");
-        sender.sendMessage("§e/rpgitem give <player> <id>");
-        sender.sendMessage("§e/rpgitem give <player> §7- pindahkan item yang dipegang");
+        sender.sendMessage(
+                "§6===== AttributesRPG Item ====="
+        );
+        sender.sendMessage(
+                "§e/rpgitem create <id> <nama> <type> <rarity> <STAT=VALUE>"
+        );
+        sender.sendMessage(
+                "§e/rpgitem give <player> <id>"
+        );
+        sender.sendMessage(
+                "§e/rpgitem give <player> §7- pindahkan item yang dipegang"
+        );
         sender.sendMessage("§e/rpgitem list");
         sender.sendMessage("§e/rpgitem delete <id>");
         sender.sendMessage("§e/rpgitem help");
@@ -282,6 +356,10 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
             String alias,
             String[] args
     ) {
+        if (!sender.hasPermission(PERMISSION)) {
+            return List.of();
+        }
+
         List<String> suggestions = new ArrayList<>();
 
         if (args.length == 1) {
@@ -297,12 +375,16 @@ public class RpgItemCommand implements CommandExecutor, TabCompleter {
                 && args[0].equalsIgnoreCase("delete")) {
             plugin.getEquipmentTemplateManager()
                     .getTemplates()
-                    .forEach(data -> suggestions.add(data.getId()));
+                    .forEach(data ->
+                            suggestions.add(data.getId())
+                    );
         } else if (args.length == 3
                 && args[0].equalsIgnoreCase("give")) {
             plugin.getEquipmentTemplateManager()
                     .getTemplates()
-                    .forEach(data -> suggestions.add(data.getId()));
+                    .forEach(data ->
+                            suggestions.add(data.getId())
+                    );
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("create")) {
             for (EquipmentType type : EquipmentType.values()) {
