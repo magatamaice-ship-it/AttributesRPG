@@ -1,3 +1,4 @@
+
 package id.attributesrpg;
 
 import org.bukkit.Bukkit;
@@ -13,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.List;
+import java.util.Map;
 
 public class EquipmentMenu implements Listener {
 
@@ -116,8 +118,11 @@ public class EquipmentMenu implements Listener {
             return;
         }
 
-        if (event.getAction().name().contains("COLLECT")
-                || event.getAction().name().contains("MOVE")) {
+        String action = event.getAction().name();
+
+        if (action.contains("COLLECT")
+                || action.contains("MOVE")
+                || action.contains("HOTBAR")) {
             return;
         }
 
@@ -133,9 +138,11 @@ public class EquipmentMenu implements Listener {
             return;
         }
 
-        for (int i = 0; i < slots.length; i++) {
+        EquipmentType[] types = EquipmentType.values();
+
+        for (int i = 0; i < slots.length && i < types.length; i++) {
             if (slot == slots[i]) {
-                unequip(player, EquipmentType.values()[i]);
+                unequip(player, types[i]);
                 return;
             }
         }
@@ -163,6 +170,13 @@ public class EquipmentMenu implements Listener {
         if (data == null) {
             player.sendMessage(
                     "§cItem di tangan bukan equipment AttributesRPG."
+            );
+            return;
+        }
+
+        if (!factory.isEquipment(hand)) {
+            player.sendMessage(
+                    "§cItem equipment tidak valid."
             );
             return;
         }
@@ -198,6 +212,24 @@ public class EquipmentMenu implements Listener {
             return;
         }
 
+        ItemStack item;
+
+        try {
+            item = factory.createItem(data);
+        } catch (IllegalArgumentException exception) {
+            player.sendMessage(
+                    "§cItem gagal dibuat. Equipment tidak dilepas."
+            );
+            return;
+        }
+
+        if (item == null) {
+            player.sendMessage(
+                    "§cItem gagal dibuat. Equipment tidak dilepas."
+            );
+            return;
+        }
+
         if (!manager.unequip(player, type)) {
             player.sendMessage(
                     "§cEquipment gagal dilepas. Silakan coba lagi."
@@ -205,16 +237,7 @@ public class EquipmentMenu implements Listener {
             return;
         }
 
-        ItemStack item = factory.createItem(data);
-
-        if (item == null) {
-            player.sendMessage(
-                    "§cItem gagal dibuat. Hubungi administrator."
-            );
-            return;
-        }
-
-        java.util.Map<Integer, ItemStack> leftovers =
+        Map<Integer, ItemStack> leftovers =
                 player.getInventory().addItem(item);
 
         for (ItemStack leftover : leftovers.values()) {
@@ -250,6 +273,10 @@ public class EquipmentMenu implements Listener {
     ) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
+
+        if (meta == null) {
+            return item;
+        }
 
         meta.setDisplayName(name);
         meta.setLore(lore);
